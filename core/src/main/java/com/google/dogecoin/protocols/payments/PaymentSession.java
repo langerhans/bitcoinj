@@ -26,7 +26,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import org.bitcoin.protocols.payments.Protos;
+import com.dogecoin.protocols.payments.Protos;
 
 import javax.annotation.Nullable;
 
@@ -387,12 +387,12 @@ public class PaymentSession {
             paymentDetails = Protos.PaymentDetails.newBuilder().mergeFrom(request.getSerializedPaymentDetails()).build();
             if (paymentDetails == null)
                 throw new PaymentProtocolException("Invalid PaymentDetails");
-            if (!paymentDetails.hasNetwork())
+            if (!paymentDetails.hasGenesis())
                 params = MainNetParams.get();
             else
-                params = NetworkParameters.fromPmtProtocolID(paymentDetails.getNetwork());
+                params = NetworkParameters.fromGenesisHash(paymentDetails.getGenesis());
             if (params == null)
-                throw new PaymentProtocolException.InvalidNetwork("Invalid network " + paymentDetails.getNetwork());
+                throw new PaymentProtocolException.InvalidNetwork("Unrecognised network " + paymentDetails.getGenesis());
             if (paymentDetails.getOutputsCount() < 1)
                 throw new PaymentProtocolException.InvalidOutputs("No outputs");
             for (Protos.Output output : paymentDetails.getOutputsList()) {

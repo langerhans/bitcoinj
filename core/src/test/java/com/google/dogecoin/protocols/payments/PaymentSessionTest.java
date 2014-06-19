@@ -22,10 +22,8 @@ import com.google.dogecoin.crypto.TrustStoreLoader;
 import com.google.dogecoin.params.MainNetParams;
 import com.google.dogecoin.params.TestNet3Params;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.dogecoin.protocols.payments.PaymentRequestException;
-import com.google.dogecoin.protocols.payments.PaymentSession;
 import com.google.protobuf.ByteString;
-import org.bitcoin.protocols.payments.Protos;
+import com.dogecoin.protocols.payments.Protos;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -60,7 +58,7 @@ public class PaymentSessionTest {
     @Test
     public void testSimplePayment() throws Exception {
         // Create a PaymentRequest and make sure the correct values are parsed by the PaymentSession.
-        MockPaymentSession paymentSession = new MockPaymentSession(newSimplePaymentRequest("test"));
+        MockPaymentSession paymentSession = new MockPaymentSession(newSimplePaymentRequest("bb0a78264637406b6360aad926284d544d7049f45189db5664f3c4d07350559e"));
         assertEquals(paymentRequestMemo, paymentSession.getMemo());
         assertEquals(coin, paymentSession.getValue());
         assertEquals(simplePaymentUrl, paymentSession.getPaymentUrl());
@@ -136,7 +134,7 @@ public class PaymentSessionTest {
     @Test(expected = PaymentProtocolException.InvalidNetwork.class)
     public void testWrongNetwork() throws Exception {
         // Create a PaymentRequest and make sure the correct values are parsed by the PaymentSession.
-        MockPaymentSession paymentSession = new MockPaymentSession(newSimplePaymentRequest("main"));
+        MockPaymentSession paymentSession = new MockPaymentSession(newSimplePaymentRequest("1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691"));
         assertEquals(MainNetParams.get(), paymentSession.getNetworkParameters());
 
         // Send the payment and verify that the correct information is sent.
@@ -149,12 +147,12 @@ public class PaymentSessionTest {
         assertEquals(1, paymentSession.getPaymentLog().size());
     }
 
-    private Protos.PaymentRequest newSimplePaymentRequest(String netID) {
+    private Protos.PaymentRequest newSimplePaymentRequest(String genesis) {
         Protos.Output.Builder outputBuilder = Protos.Output.newBuilder()
                 .setAmount(coin.longValue())
                 .setScript(ByteString.copyFrom(outputToMe.getScriptBytes()));
         Protos.PaymentDetails paymentDetails = Protos.PaymentDetails.newBuilder()
-                .setNetwork(netID)
+                .setGenesis(genesis)
                 .setTime(time)
                 .setPaymentUrl(simplePaymentUrl)
                 .addOutputs(outputBuilder)
@@ -173,7 +171,7 @@ public class PaymentSessionTest {
                 .setAmount(coin.longValue())
                 .setScript(ByteString.copyFrom(outputToMe.getScriptBytes()));
         Protos.PaymentDetails paymentDetails = Protos.PaymentDetails.newBuilder()
-                .setNetwork("test")
+                .setGenesis("bb0a78264637406b6360aad926284d544d7049f45189db5664f3c4d07350559e")
                 .setTime(time - 10)
                 .setExpires(time - 1)
                 .setPaymentUrl(simplePaymentUrl)
