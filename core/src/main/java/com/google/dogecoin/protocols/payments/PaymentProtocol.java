@@ -49,9 +49,9 @@ import java.util.List;
 public class PaymentProtocol {
 
     // MIME types as defined in BIP71.
-    public static final String MIMETYPE_PAYMENTREQUEST = "application/dogecoin-paymentrequest";
-    public static final String MIMETYPE_PAYMENT = "application/dogecoin-payment";
-    public static final String MIMETYPE_PAYMENTACK = "application/dogecoin-paymentack";
+    public static final String MIMETYPE_PAYMENTREQUEST = "application/vnd.doge.payment.request";
+    public static final String MIMETYPE_PAYMENT = "application/vnd.doge.payment.payment";
+    public static final String MIMETYPE_PAYMENTACK = "application/vnd.doge.payment.ack";
 
     /**
      * Create a payment request with one standard pay to address output. You may want to sign the request using
