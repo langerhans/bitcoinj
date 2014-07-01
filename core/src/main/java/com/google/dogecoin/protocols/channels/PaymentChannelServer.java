@@ -213,7 +213,7 @@ public class PaymentChannelServer {
             }
         }
         log.info("Got initial version message, responding with VERSIONS and INITIATE: min value={}",
-                minAcceptedChannelSize.value);
+                minAcceptedChannelSize.longValue());
 
         myKey = new ECKey();
         wallet.freshReceiveKey();
@@ -224,8 +224,8 @@ public class PaymentChannelServer {
         Protos.Initiate.Builder initiateBuilder = Protos.Initiate.newBuilder()
                 .setMultisigKey(ByteString.copyFrom(myKey.getPubKey()))
                 .setExpireTimeSecs(expireTime)
-                .setMinAcceptedChannelSize(minAcceptedChannelSize.value)
-                .setMinPayment(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE.value);
+                .setMinAcceptedChannelSize(minAcceptedChannelSize.longValue())
+                .setMinPayment(Transaction.REFERENCE_DEFAULT_MIN_TX_FEE.longValue());
 
         conn.sendToClient(Protos.TwoWayChannelMessage.newBuilder()
                 .setInitiate(initiateBuilder)

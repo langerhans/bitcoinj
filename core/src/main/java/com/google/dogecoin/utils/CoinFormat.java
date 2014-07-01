@@ -217,7 +217,7 @@ public final class CoinFormat {
         checkState(maxDecimals <= Coin.NUM_COIN_DECIMALS);
 
         // rounding
-        long satoshis = Math.abs(coin.value);
+        long satoshis = Math.abs(coin.longValue());
         long precisionDivisor = checkedPow(10, Coin.NUM_COIN_DECIMALS - shift - maxDecimals);
         satoshis = checkedMultiply(divide(satoshis, precisionDivisor, roundingMode), precisionDivisor);
 
@@ -245,7 +245,7 @@ public final class CoinFormat {
         if (str.length() > 0)
             str.insert(0, decimalMark);
         str.insert(0, numbers);
-        if (coin.value < 0)
+        if (coin.longValue() < 0)
             str.insert(0, negativeSign);
         else if (positiveSign != 0)
             str.insert(0, positiveSign);

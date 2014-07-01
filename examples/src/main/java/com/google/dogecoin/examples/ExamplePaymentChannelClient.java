@@ -40,6 +40,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.dogecoin.core.Coin.CENT;
+import static com.google.dogecoin.core.Coin.COIN;
 
 /**
  * Simple client that connects to the given host, opens a channel, and pays one cent.
@@ -122,7 +123,7 @@ public class ExamplePaymentChannelClient {
                 // we are not allowed to have payment channels that pay nothing at all.
                 log.info("Success! Trying to make {} micropayments. Already paid {} satoshis on this channel",
                         times, client.state().getValueSpent());
-                final Coin MICROPAYMENT_SIZE = CENT.divide(10);
+                final Coin MICROPAYMENT_SIZE = CENT.divide(Coin.valueOf(10));
                 for (int i = 0; i < times; i++) {
                     try {
                         // Wait because the act of making a micropayment is async, and we're not allowed to overlap.

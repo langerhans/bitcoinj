@@ -49,15 +49,15 @@ public class CoinTest {
         assertEquals(CENT, valueOf(0, 1));
         assertEquals(SATOSHI, valueOf(1));
         assertEquals(NEGATIVE_SATOSHI, valueOf(-1));
-        assertEquals(MAX_MONEY, valueOf(MAX_MONEY.value));
-        assertEquals(MAX_MONEY.negate(), valueOf(MAX_MONEY.value * -1));
+        assertEquals(MAX_MONEY, valueOf(MAX_MONEY.longValue()));
+        assertEquals(MAX_MONEY.negate(), valueOf(MAX_MONEY.longValue() * -1));
         try {
-            valueOf(MAX_MONEY.value + 1);
+            valueOf(MAX_MONEY.longValue() + 1);
             org.junit.Assert.fail("should not have accepted too-great a monetary value");
         } catch (IllegalArgumentException e) {
         }
         try {
-            valueOf( (MAX_MONEY.value * -1) - 1);
+            valueOf( (MAX_MONEY.longValue() * -1) - 1);
             org.junit.Assert.fail("should not have accepted too-little a monetary value");
         } catch (IllegalArgumentException e) {
         }
@@ -96,7 +96,7 @@ public class CoinTest {
     public void testToFriendlyString() {
         assertEquals("1.00", COIN.toFriendlyString());
         assertEquals("1.23", valueOf(1, 23).toFriendlyString());
-        assertEquals("0.001", COIN.divide(1000).toFriendlyString());
+        assertEquals("0.001", COIN.divide(Coin.valueOf(1000)).toFriendlyString());
         assertEquals("-1.23", valueOf(1, 23).negate().toFriendlyString());
     }
 

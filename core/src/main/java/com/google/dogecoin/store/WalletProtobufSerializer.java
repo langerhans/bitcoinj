@@ -233,7 +233,7 @@ public class WalletProtobufSerializer {
             if (input.hasSequence())
                 inputBuilder.setSequence((int) input.getSequenceNumber());
             if (input.getValue() != null)
-                inputBuilder.setValue(input.getValue().value);
+                inputBuilder.setValue(input.getValue().longValue());
             txBuilder.addTransactionInput(inputBuilder);
         }
         
@@ -241,7 +241,7 @@ public class WalletProtobufSerializer {
         for (TransactionOutput output : tx.getOutputs()) {
             Protos.TransactionOutput.Builder outputBuilder = Protos.TransactionOutput.newBuilder()
                 .setScriptBytes(ByteString.copyFrom(output.getScriptBytes()))
-                .setValue(output.getValue().value);
+                .setValue(output.getValue().longValue());
             final TransactionInput spentBy = output.getSpentBy();
             if (spentBy != null) {
                 Sha256Hash spendingHash = spentBy.getParentTransaction().getHash();
