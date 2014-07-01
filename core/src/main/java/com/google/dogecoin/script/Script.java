@@ -1,6 +1,7 @@
 /**
  * Copyright 2011 Google Inc.
  * Copyright 2012 Matt Corallo.
+ * Copyright 2014 Andreas Schildbach
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +20,12 @@ package com.google.dogecoin.script;
 
 import com.google.dogecoin.core.*;
 import com.google.dogecoin.crypto.TransactionSignature;
-import com.google.dogecoin.params.MainNetParams;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.crypto.digests.RIPEMD160Digest;
 
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -35,7 +36,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 import static com.google.dogecoin.script.ScriptOpCodes.*;
-import static com.google.dogecoin.core.Utils.bytesToHexString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,6 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class Script {
     private static final Logger log = LoggerFactory.getLogger(Script.class);
     public static final long MAX_SCRIPT_ELEMENT_SIZE = 520;  // bytes
+    public static final int SIG_SIZE = 75;
 
     // The program is a set of chunks where each element is either [opcode] or [data, data, data ...]
     protected List<ScriptChunk> chunks;
@@ -104,20 +105,14 @@ public class Script {
     /**
      * Returns the program opcodes as a string, for example "[1234] DUP HASH160"
      */
+    @Override
     public String toString() {
         StringBuilder buf = new StringBuilder();
-        for (ScriptChunk chunk : chunks) {
-            if (chunk.isOpCode()) {
-                buf.append(getOpCodeName(chunk.data[0]));
-                buf.append(" ");
-            } else {
-                // Data chunk
-                buf.append("[");
-                buf.append(bytesToHexString(chunk.data));
-                buf.append("] ");
-            }
-        }
-        return buf.toString().trim();
+        for (ScriptChunk chunk : chunks)
+            buf.append(chunk).append(' ');
+        if (buf.length() > 0)
+            buf.setLength(buf.length() - 1);
+        return buf.toString();
     }
 
     /** Returns the serialized program as a newly created byte array. */
@@ -142,16 +137,14 @@ public class Script {
         return Collections.unmodifiableList(chunks);
     }
 
-    private static final ScriptChunk INTERN_TABLE[];
+    private static final ScriptChunk STANDARD_TRANSACTION_SCRIPT_CHUNKS[];
 
     static {
-        Script examplePayToAddress = ScriptBuilder.createOutputScript(new Address(MainNetParams.get(), new byte[20]));
-        examplePayToAddress = new Script(examplePayToAddress.getProgram());
-        INTERN_TABLE = new ScriptChunk[] {
-                examplePayToAddress.chunks.get(0),  // DUP
-                examplePayToAddress.chunks.get(1),  // HASH160
-                examplePayToAddress.chunks.get(3),  // EQUALVERIFY
-                examplePayToAddress.chunks.get(4),  // CHECKSIG
+        STANDARD_TRANSACTION_SCRIPT_CHUNKS = new ScriptChunk[] {
+            new ScriptChunk(ScriptOpCodes.OP_DUP, null, 0),
+            new ScriptChunk(ScriptOpCodes.OP_HASH160, null, 1),
+            new ScriptChunk(ScriptOpCodes.OP_EQUALVERIFY, null, 23),
+            new ScriptChunk(ScriptOpCodes.OP_CHECKSIG, null, 24),
         };
     }
 
@@ -192,20 +185,17 @@ public class Script {
 
             ScriptChunk chunk;
             if (dataToRead == -1) {
-                chunk = new ScriptChunk(true, new byte[]{(byte) opcode}, startLocationInProgram);
+                chunk = new ScriptChunk(opcode, null, startLocationInProgram);
             } else {
                 if (dataToRead > bis.available())
                     throw new ScriptException("Push of data element that is larger than remaining data");
                 byte[] data = new byte[(int)dataToRead];
                 checkState(dataToRead == 0 || bis.read(data, 0, (int)dataToRead) == dataToRead);
-                chunk = new ScriptChunk(false, data, startLocationInProgram);
+                chunk = new ScriptChunk(opcode, data, startLocationInProgram);
             }
-            // Save some memory by eliminating redundant copies of the same chunk objects. INTERN_TABLE can be null
-            // here because this method is called whilst setting it up.
-            if (INTERN_TABLE != null) {
-                for (ScriptChunk c : INTERN_TABLE) {
-                    if (c.equals(chunk)) chunk = c;
-                }
+            // Save some memory by eliminating redundant copies of the same chunk objects.
+            for (ScriptChunk c : STANDARD_TRANSACTION_SCRIPT_CHUNKS) {
+                if (c.equals(chunk)) chunk = c;
             }
             chunks.add(chunk);
         }
@@ -272,12 +262,16 @@ public class Script {
         if (chunks.size() != 2) {
             throw new ScriptException("Script not of right size, expecting 2 but got " + chunks.size());
         }
-        if (chunks.get(0).data.length > 2 && chunks.get(1).data.length > 2) {
+        final ScriptChunk chunk0 = chunks.get(0);
+        final byte[] chunk0data = chunk0.data;
+        final ScriptChunk chunk1 = chunks.get(1);
+        final byte[] chunk1data = chunk1.data;
+        if (chunk0data != null && chunk0data.length > 2 && chunk1data != null && chunk1data.length > 2) {
             // If we have two large constants assume the input to a pay-to-address output.
-            return chunks.get(1).data;
-        } else if (chunks.get(1).data.length == 1 && chunks.get(1).equalsOpCode(OP_CHECKSIG) && chunks.get(0).data.length > 2) {
+            return chunk1data;
+        } else if (chunk1.equalsOpCode(OP_CHECKSIG) && chunk0data != null && chunk0data.length > 2) {
             // A large constant followed by an OP_CHECKSIG is the key.
-            return chunks.get(0).data;
+            return chunk0data;
         } else {
             throw new ScriptException("Script did not match expected form: " + toString());
         }
@@ -381,8 +375,7 @@ public class Script {
         int lastOpCode = OP_INVALIDOPCODE;
         for (ScriptChunk chunk : chunks) {
             if (chunk.isOpCode()) {
-                int opcode = 0xFF & chunk.data[0];
-                switch (opcode) {
+                switch (chunk.opcode) {
                 case OP_CHECKSIG:
                 case OP_CHECKSIGVERIFY:
                     sigOps++;
@@ -397,19 +390,12 @@ public class Script {
                 default:
                     break;
                 }
-                lastOpCode = opcode;
+                lastOpCode = chunk.opcode;
             }
         }
         return sigOps;
     }
 
-    /**
-     * Converts an opcode to its int representation (including OP_1NEGATE and OP_0/OP_FALSE)
-     * @throws IllegalArgumentException If the opcode is not an OP_N opcode
-     */
-    public static int decodeFromOpN(byte opcode) throws IllegalArgumentException {
-        return decodeFromOpN((int)opcode);
-    }
     static int decodeFromOpN(int opcode) {
         checkArgument((opcode == OP_0 || opcode == OP_1NEGATE) || (opcode >= OP_1 && opcode <= OP_16), "decodeFromOpN called on non OP_N opcode");
         if (opcode == OP_0)
@@ -463,6 +449,36 @@ public class Script {
     }
 
     /**
+     * Returns number of bytes required to spend this script. It accepts optional ECKey and redeemScript that may
+     * be required for certain types of script to estimate target size.
+     */
+    public int getNumberOfBytesRequiredToSpend(@Nullable ECKey pubKey, @Nullable Script redeemScript) {
+        if (isPayToScriptHash()) {
+            // scriptSig: <sig> [sig] [sig...] <redeemscript>
+            checkArgument(redeemScript != null, "P2SH script requires redeemScript to be spent");
+            // for N of M CHECKMULTISIG redeem script we will need N signatures to spend
+            ScriptChunk nChunk = redeemScript.getChunks().get(0);
+            int n = Script.decodeFromOpN(nChunk.opcode);
+            return n * SIG_SIZE + getProgram().length;
+        } else if (isSentToMultiSig()) {
+            // scriptSig: OP_0 <sig> [sig] [sig...]
+            // for N of M CHECKMULTISIG script we will need N signatures to spend
+            ScriptChunk nChunk = chunks.get(0);
+            int n = Script.decodeFromOpN(nChunk.opcode);
+            return n * SIG_SIZE + 1;
+        } else if (isSentToRawPubKey()) {
+            // scriptSig: <sig>
+            return SIG_SIZE;
+        } else if (isSentToAddress()) {
+            // scriptSig: <sig> <pubkey>
+            int uncompressedPubKeySize = 65;
+            return SIG_SIZE + (pubKey != null ? pubKey.getPubKey().length : uncompressedPubKeySize);
+        } else {
+            throw new IllegalStateException("Unsupported script type");
+        }
+    }
+
+    /**
      * <p>Whether or not this is a scriptPubKey representing a pay-to-script-hash output. In such outputs, the logic that
      * controls reclamation is not actually in the output at all. Instead there's just a hash, and it's up to the
      * spending input to provide a program matching that hash. This rule is "soft enforced" by the network as it does
@@ -499,13 +515,13 @@ public class Script {
             // Second to last chunk must be an OP_N opcode and there should be that many data chunks (keys).
             ScriptChunk m = chunks.get(chunks.size() - 2);
             if (!m.isOpCode()) return false;
-            int numKeys = decodeFromOpN(m.data[0]);
+            int numKeys = decodeFromOpN(m.opcode);
             if (numKeys < 1 || chunks.size() != 3 + numKeys) return false;
             for (int i = 1; i < chunks.size() - 2; i++) {
                 if (chunks.get(i).isOpCode()) return false;
             }
             // First chunk must be an OP_N opcode too.
-            if (decodeFromOpN(chunks.get(0).data[0]) < 1) return false;
+            if (decodeFromOpN(chunks.get(0).opcode) < 1) return false;
         } catch (IllegalStateException e) {
             return false;   // Not an OP_N opcode.
         }
@@ -605,7 +621,7 @@ public class Script {
                 
                 stack.add(chunk.data);
             } else {
-                int opcode = 0xFF & chunk.data[0];
+                int opcode = chunk.opcode;
                 if (opcode > OP_16) {
                     opCount++;
                     if (opCount > 201)
@@ -1254,7 +1270,7 @@ public class Script {
         // TODO: Check if we can take out enforceP2SH if there's a checkpoint at the enforcement block.
         if (enforceP2SH && scriptPubKey.isPayToScriptHash()) {
             for (ScriptChunk chunk : chunks)
-                if (chunk.isOpCode() && (chunk.data[0] & 0xff) > OP_16)
+                if (chunk.isOpCode() && chunk.opcode > OP_16)
                     throw new ScriptException("Attempted to spend a P2SH scriptPubKey with a script that contained script ops");
             
             byte[] scriptPubKeyBytes = p2shStack.pollLast();
@@ -1278,11 +1294,11 @@ public class Script {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof Script))
-            return false;
-        Script s = (Script)obj;
-        return Arrays.equals(getQuickProgram(), s.getQuickProgram());
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Script other = (Script) o;
+        return Arrays.equals(getQuickProgram(), other.getQuickProgram());
     }
 
     @Override

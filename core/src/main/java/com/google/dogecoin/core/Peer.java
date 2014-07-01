@@ -81,6 +81,8 @@ public class Peer extends PeerSocketHandler {
     // The version data to announce to the other side of the connections we make: useful for setting our "user agent"
     // equivalent and other things.
     private final VersionMessage versionMessage;
+    // Switch for enabling download of pending transaction dependencies.
+    private final boolean downloadTxDependencies;
     // How many block messages the peer has announced to us. Peers only announce blocks that attach to their best chain
     // so we can use this to calculate the height of the peers chain, by adding it to the initial height in the version
     // message. This method can go wrong if the peer re-orgs onto a shorter (but harder) chain, however, this is rare.
@@ -180,10 +182,30 @@ public class Peer extends PeerSocketHandler {
      * used to keep track of which peers relayed transactions and offer more descriptive logging.</p>
      */
     public Peer(NetworkParameters params, VersionMessage ver, PeerAddress remoteAddress,
-				@Nullable AbstractBlockChain chain, @Nullable MemoryPool mempool) {
+            @Nullable AbstractBlockChain chain, @Nullable MemoryPool mempool) {
+        this(params, ver, remoteAddress, chain, mempool, true);
+    }
+
+   /**
+     * <p>Construct a peer that reads/writes from the given block chain and memory pool. Transactions stored in a memory
+     * pool will have their confidence levels updated when a peer announces it, to reflect the greater likelyhood that
+     * the transaction is valid.</p>
+     *
+     * <p>Note that this does <b>NOT</b> make a connection to the given remoteAddress, it only creates a handler for a
+     * connection. If you want to create a one-off connection, create a Peer and pass it to
+     * {@link com.google.dogecoin.net.NioClientManager#openConnection(java.net.SocketAddress, com.google.dogecoin.net.StreamParser)}
+     * or
+     * {@link com.google.dogecoin.net.NioClient#NioClient(java.net.SocketAddress, com.google.dogecoin.net.StreamParser, int)}.</p>
+     *
+     * <p>The remoteAddress provided should match the remote address of the peer which is being connected to, and is
+     * used to keep track of which peers relayed transactions and offer more descriptive logging.</p>
+     */
+    public Peer(NetworkParameters params, VersionMessage ver, PeerAddress remoteAddress,
+				@Nullable AbstractBlockChain chain, @Nullable MemoryPool mempool, boolean downloadTxDependencies) {
         super(params, remoteAddress);
         this.params = Preconditions.checkNotNull(params);
         this.versionMessage = Preconditions.checkNotNull(ver);
+        this.downloadTxDependencies = downloadTxDependencies;
         this.blockChain = chain;  // Allowed to be null.
         this.vDownloadData = chain != null;
         this.getDataFutures = new CopyOnWriteArrayList<GetDataRequest>();
@@ -210,7 +232,7 @@ public class Peer extends PeerSocketHandler {
      * used to keep track of which peers relayed transactions and offer more descriptive logging.</p>
      */
     public Peer(NetworkParameters params, AbstractBlockChain blockChain, PeerAddress peerAddress, String thisSoftwareName, String thisSoftwareVersion) {
-        this(params, new VersionMessage(params, blockChain.getBestChainHeight(), true), blockChain, peerAddress);
+        this(params, new VersionMessage(params, blockChain.getBestChainHeight()), blockChain, peerAddress);
         this.versionMessage.appendToSubVer(thisSoftwareName, thisSoftwareVersion, null);
     }
 
@@ -288,6 +310,7 @@ public class Peer extends PeerSocketHandler {
         return connectionOpenFuture;
     }
 
+    @Override
     protected void processMessage(Message m) throws Exception {
         // Allow event listeners to filter the message stream. Listeners are allowed to drop messages by
         // returning null.
@@ -596,26 +619,29 @@ public class Peer extends PeerSocketHandler {
                         // the chain, in case the sender goes away and the network starts to forget.
                         // TODO: Not all the above things are implemented.
 
-                        Futures.addCallback(downloadDependencies(fTx), new FutureCallback<List<Transaction>>() {
-                            public void onSuccess(List<Transaction> dependencies) {
-                                try {
-                                    log.info("{}: Dependency download complete!", getAddress());
-                                    wallet.receivePending(fTx, dependencies);
-                                } catch (VerificationException e) {
-                                    log.error("{}: Wallet failed to process pending transaction {}",
-                                            getAddress(), fTx.getHashAsString());
-                                    log.error("Error was: ", e);
+                        if (downloadTxDependencies) {
+                            Futures.addCallback(downloadDependencies(fTx), new FutureCallback<List<Transaction>>() {
+                                @Override
+                                public void onSuccess(List<Transaction> dependencies) {
+                                    try {
+                                        log.info("{}: Dependency download complete!", getAddress());
+                                        wallet.receivePending(fTx, dependencies);
+                                    } catch (VerificationException e) {
+                                        log.error("{}: Wallet failed to process pending transaction {}", getAddress(),
+                                                fTx.getHashAsString());
+                                        log.error("Error was: ", e);
+                                        // Not much more we can do at this point.
+                                    }
+                                }
+
+                                @Override
+                                public void onFailure(Throwable throwable) {
+                                    log.error("Could not download dependencies of tx {}", fTx.getHashAsString());
+                                    log.error("Error was: ", throwable);
                                     // Not much more we can do at this point.
                                 }
-                            }
-
-                            public void onFailure(Throwable throwable) {
-                                log.error("Could not download dependencies of tx {}", fTx.getHashAsString());
-                                log.error("Error was: ", throwable);
-                                // Not much more we can do at this point.
-                            }
-                        });
-
+                            });
+                        }
                     }
                 } catch (VerificationException e) {
                     log.error("Wallet failed to verify tx", e);
@@ -660,13 +686,15 @@ public class Peer extends PeerSocketHandler {
         log.info("{}: Downloading dependencies of {}", getAddress(), tx.getHashAsString());
         final LinkedList<Transaction> results = new LinkedList<Transaction>();
         // future will be invoked when the entire dependency tree has been walked and the results compiled.
-        final ListenableFuture future = downloadDependenciesInternal(tx, new Object(), results);
+        final ListenableFuture<Object> future = downloadDependenciesInternal(tx, new Object(), results);
         final SettableFuture<List<Transaction>> resultFuture = SettableFuture.create();
-        Futures.addCallback(future, new FutureCallback() {
+        Futures.addCallback(future, new FutureCallback<Object>() {
+            @Override
             public void onSuccess(Object ignored) {
                 resultFuture.set(results);
             }
 
+            @Override
             public void onFailure(Throwable throwable) {
                 resultFuture.setException(throwable);
             }
@@ -726,6 +754,7 @@ public class Peer extends PeerSocketHandler {
             }
             ListenableFuture<List<Transaction>> successful = Futures.successfulAsList(futures);
             Futures.addCallback(successful, new FutureCallback<List<Transaction>>() {
+                @Override
                 public void onSuccess(List<Transaction> transactions) {
                     // Once all transactions either were received, or we know there are no more to come ...
                     // Note that transactions will contain "null" for any positions that weren't successful.
@@ -744,10 +773,12 @@ public class Peer extends PeerSocketHandler {
                         // There are some children to download. Wait until it's done (and their children and their
                         // children...) to inform the caller that we're finished.
                         Futures.addCallback(Futures.successfulAsList(childFutures), new FutureCallback<List<Object>>() {
+                            @Override
                             public void onSuccess(List<Object> objects) {
                                 resultFuture.set(marker);
                             }
 
+                            @Override
                             public void onFailure(Throwable throwable) {
                                 resultFuture.setException(throwable);
                             }
@@ -755,6 +786,7 @@ public class Peer extends PeerSocketHandler {
                     }
                 }
 
+                @Override
                 public void onFailure(Throwable throwable) {
                     resultFuture.setException(throwable);
                 }
@@ -767,6 +799,7 @@ public class Peer extends PeerSocketHandler {
                 // from getdata are done, so we can watch for the pong message as a substitute.
                 log.info("{}: Dep resolution waiting for a pong with nonce {}", this, nonce);
                 ping(nonce).addListener(new Runnable() {
+                    @Override
                     public void run() {
                         // The pong came back so clear out any transactions we requested but didn't get.
                         for (GetDataRequest req : getDataFutures) {
@@ -1079,6 +1112,10 @@ public class Peer extends PeerSocketHandler {
      * If you want the block right away and don't mind waiting for it, just call .get() on the result. Your thread
      * will block until the peer answers.
      */
+    @SuppressWarnings("unchecked")
+    // The 'unchecked conversion' warning being suppressed here comes from the sendSingleGetData() formally returning
+    // ListenableFuture instead of ListenableFuture<Block>. This is okay as sendSingleGetData() actually returns
+    // ListenableFuture<Block> in this context. Note that sendSingleGetData() is also used for Transactions.
     public ListenableFuture<Block> getBlock(Sha256Hash blockHash) {
         // This does not need to be locked.
         log.info("Request to fetch block {}", blockHash);
@@ -1092,6 +1129,10 @@ public class Peer extends PeerSocketHandler {
      * retrieved this way because peers don't have a transaction ID to transaction-pos-on-disk index, and besides,
      * in future many peers will delete old transaction data they don't need.
      */
+    @SuppressWarnings("unchecked")
+    // The 'unchecked conversion' warning being suppressed here comes from the sendSingleGetData() formally returning
+    // ListenableFuture instead of ListenableFuture<Transaction>. This is okay as sendSingleGetData() actually returns
+    // ListenableFuture<Transaction> in this context. Note that sendSingleGetData() is also used for Blocks.
     public ListenableFuture<Transaction> getPeerMempoolTransaction(Sha256Hash hash) {
         // This does not need to be locked.
         // TODO: Unit test this method.
@@ -1205,7 +1246,7 @@ public class Peer extends PeerSocketHandler {
         //   https://en.bitcoin.it/wiki/Protocol_specification#getblocks
         //
         // This is because it requires scanning all the block chain headers, which is very slow. Instead we add the top
-        // 50 block headers. If there is a re-org deeper than that, we'll end up downloading the entire chain. We
+        // 100 block headers. If there is a re-org deeper than that, we'll end up downloading the entire chain. We
         // must always put the genesis block as the first entry.
         BlockStore store = checkNotNull(blockChain).getBlockStore();
         StoredBlock chainHead = blockChain.getChainHead();
@@ -1468,15 +1509,33 @@ public class Peer extends PeerSocketHandler {
      * unset a filter, though the underlying p2p protocol does support it.</p>
      */
     public void setBloomFilter(BloomFilter filter) {
+        setBloomFilter(filter, memoryPool != null || vDownloadData);
+    }
+
+    /**
+     * <p>Sets a Bloom filter on this connection. This will cause the given {@link BloomFilter} object to be sent to the
+     * remote peer and if requested, a {@link MemoryPoolMessage} is sent as well to trigger downloading of any
+     * pending transactions that may be relevant.</p>
+     *
+     * <p>The Peer does not automatically request filters from any wallets added using {@link Peer#addWallet(Wallet)}.
+     * This is to allow callers to avoid redundantly recalculating the same filter repeatedly when using multiple peers
+     * and multiple wallets together.</p>
+     *
+     * <p>Therefore, you should not use this method if your app uses a {@link PeerGroup}. It is called for you.</p>
+     *
+     * <p>If the remote peer doesn't support Bloom filtering, then this call is ignored. Once set you presently cannot
+     * unset a filter, though the underlying p2p protocol does support it.</p>
+     */
+    public void setBloomFilter(BloomFilter filter, boolean andQueryMemPool) {
         checkNotNull(filter, "Clearing filters is not currently supported");
         final VersionMessage ver = vPeerVersionMessage;
         if (ver == null || !ver.isBloomFilteringSupported())
             return;
         vBloomFilter = filter;
-        boolean shouldQueryMemPool = memoryPool != null || vDownloadData;
-        log.info("{}: Sending Bloom filter{}", this, shouldQueryMemPool ? " and querying mempool" : "");
+        log.info("{}: Sending Bloom filter{}", this, andQueryMemPool ? " and querying mempool" : "");
         sendMessage(filter);
-        sendMessage(new MemoryPoolMessage());
+        if (andQueryMemPool)
+            sendMessage(new MemoryPoolMessage());
     }
 
     /**

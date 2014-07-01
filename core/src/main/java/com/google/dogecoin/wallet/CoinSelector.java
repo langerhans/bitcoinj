@@ -1,8 +1,8 @@
 package com.google.dogecoin.wallet;
 
+import com.google.dogecoin.core.Coin;
 import com.google.dogecoin.core.TransactionOutput;
 
-import java.math.BigInteger;
 import java.util.LinkedList;
 
 /**
@@ -12,5 +12,10 @@ import java.util.LinkedList;
  * enough money in the wallet.
  */
 public interface CoinSelector {
-    public CoinSelection select(BigInteger target, LinkedList<TransactionOutput> candidates);
+    /**
+     * Creates a CoinSelection that tries to meet the target amount of value. The candidates list is given to
+     * this call and can be edited freely. See the docs for CoinSelection to learn more, or look a the implementation
+     * of {@link com.google.dogecoin.wallet.DefaultCoinSelector}.
+     */
+    public CoinSelection select(Coin target, LinkedList<TransactionOutput> candidates);
 }

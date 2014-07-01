@@ -1,5 +1,6 @@
 /**
  * Copyright 2011 Google Inc.
+ * Copyright 2014 Andreas Schildbach
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +21,6 @@ import com.google.dogecoin.params.*;
 import com.google.dogecoin.script.Script;
 import com.google.dogecoin.script.ScriptOpCodes;
 import com.google.common.base.Objects;
-import org.spongycastle.util.encoders.Hex;
 
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
@@ -28,8 +28,6 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
-
-import static com.google.dogecoin.core.Utils.COIN;
 
 /**
  * <p>NetworkParameters contains the data needed for working with an instantiation of a Bitcoin chain.</p>
@@ -48,12 +46,14 @@ public abstract class NetworkParameters implements Serializable {
     /**
      * The alert signing key originally owned by Satoshi, and now passed on to Gavin along with a few others.
      */
-    public static final byte[] SATOSHI_KEY = Hex.decode("04d4da7a5dae4db797d9b0644d57a5cd50e05a70f36091cd62e2fc41c98ded06340be5a43a35e185690cd9cde5d72da8f6d065b499b06f51dcfba14aad859f443a");
+    public static final byte[] SATOSHI_KEY = Utils.HEX.decode("04d4da7a5dae4db797d9b0644d57a5cd50e05a70f36091cd62e2fc41c98ded06340be5a43a35e185690cd9cde5d72da8f6d065b499b06f51dcfba14aad859f443a");
 
     /** The string returned by getId() for the main, production network where people trade things. */
     public static final String ID_MAINNET = "org.dogecoin.production";
     /** The string returned by getId() for the testnet. */
     public static final String ID_TESTNET = "org.dogecoin.test";
+    /** The string returned by getId() for regtest mode. */
+    public static final String ID_REGTEST = "org.dogecoin.regtest";
     /** Unit test network. */
     public static final String ID_UNITTESTNET = "com.google.dogecoin.unittest";
 
@@ -65,9 +65,9 @@ public abstract class NetworkParameters implements Serializable {
     // TODO: Seed nodes should be here as well.
 
     protected Block genesisBlock;
-    protected BigInteger proofOfWorkLimit;
+    protected BigInteger maxTarget;
     protected int port;
-    protected long packetMagic;
+    protected long packetMagic;  // Indicates message origin network and is used to seek to the next message when stream state is unknown.
     protected int addressHeader;
     protected int p2shHeader;
     protected int dumpedPrivateKeyHeader;
@@ -106,14 +106,14 @@ public abstract class NetworkParameters implements Serializable {
             // A script containing the difficulty bits and the following message:
             //
             //   "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
-            byte[] bytes = Hex.decode
+            byte[] bytes = Utils.HEX.decode
                     ("04ffff001d0104084e696e746f6e646f");
             t.addInput(new TransactionInput(n, t, bytes));
             ByteArrayOutputStream scriptPubKeyBytes = new ByteArrayOutputStream();
-            Script.writeBytes(scriptPubKeyBytes, Hex.decode
+            Script.writeBytes(scriptPubKeyBytes, Utils.HEX.decode
                     ("040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9"));
             scriptPubKeyBytes.write(ScriptOpCodes.OP_CHECKSIG);
-            t.addOutput(new TransactionOutput(n, t, Utils.toNanoCoins(88, 0), scriptPubKeyBytes.toByteArray()));
+            t.addOutput(new TransactionOutput(n, t, Coin.valueOf(88, 0), scriptPubKeyBytes.toByteArray()));
         } catch (Exception e) {
             // Cannot happen.
             throw new RuntimeException(e);
@@ -136,9 +136,14 @@ public abstract class NetworkParameters implements Serializable {
     public static final int BIP16_ENFORCE_TIME = 1333238400;
     
     /**
+     * The maximum number of coins to be generated
+     */
+    public static final String MAX_COINS = "10000000000000000000";
+
+    /**
      * The maximum money to be generated
      */
-    public static final BigInteger MAX_MONEY = new BigInteger("100000000000", 10).multiply(COIN);
+    public static final Coin MAX_MONEY = Coin.parseCoin(MAX_COINS);
 
     /** Alias for TestNet3Params.get(), use that instead. */
     @Deprecated
@@ -186,10 +191,11 @@ public abstract class NetworkParameters implements Serializable {
     public abstract String getPaymentProtocolId();
 
     @Override
-    public boolean equals(Object other) {
-        if (!(other instanceof NetworkParameters)) return false;
-        NetworkParameters o = (NetworkParameters) other;
-        return o.getId().equals(getId());
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        NetworkParameters other = (NetworkParameters) o;
+        return getId().equals(other.getId());
     }
 
     @Override
@@ -206,6 +212,8 @@ public abstract class NetworkParameters implements Serializable {
             return TestNet3Params.get();
         } else if (id.equals(ID_UNITTESTNET)) {
             return UnitTestParams.get();
+        } else if (id.equals(ID_REGTEST)) {
+            return RegTestParams.get();
         } else {
             return null;
         }
@@ -347,9 +355,9 @@ public abstract class NetworkParameters implements Serializable {
         return diffChangeTarget;
     }
 
-    /** What the easiest allowable proof of work should be. */
-    public BigInteger getProofOfWorkLimit() {
-        return proofOfWorkLimit;
+    /** Maximum target represents the easiest allowable proof of work. */
+    public BigInteger getMaxTarget() {
+        return maxTarget;
     }
 
     /**

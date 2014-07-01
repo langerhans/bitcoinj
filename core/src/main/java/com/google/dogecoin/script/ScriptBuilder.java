@@ -18,13 +18,13 @@ package com.google.dogecoin.script;
 
 import com.google.dogecoin.core.Address;
 import com.google.dogecoin.core.ECKey;
+import com.google.dogecoin.core.Utils;
 import com.google.dogecoin.crypto.TransactionSignature;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.UnsignedBytes;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import static com.google.dogecoin.script.ScriptOpCodes.*;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,22 +41,44 @@ public class ScriptBuilder {
         chunks = Lists.newLinkedList();
     }
 
-    public ScriptBuilder op(int opcode) {
-        chunks.add(new ScriptChunk(true, new byte[]{(byte)opcode}));
+    public ScriptBuilder addChunk(ScriptChunk chunk) {
+        chunks.add(chunk);
         return this;
     }
 
+    public ScriptBuilder op(int opcode) {
+        checkArgument(opcode > OP_PUSHDATA4);
+        return addChunk(new ScriptChunk(opcode, null));
+    }
+
     public ScriptBuilder data(byte[] data) {
+        // implements BIP62
         byte[] copy = Arrays.copyOf(data, data.length);
-        chunks.add(new ScriptChunk(false, copy));
-        return this;
+        int opcode;
+        if (data.length == 0) {
+            opcode = OP_0;
+        } else if (data.length == 1) {
+            byte b = data[0];
+            if (b >= 1 && b <= 16)
+                opcode = Script.encodeToOpN(b);
+            else
+                opcode = 1;
+        } else if (data.length < OP_PUSHDATA1) {
+            opcode = data.length;
+        } else if (data.length < 256) {
+            opcode = OP_PUSHDATA1;
+        } else if (data.length < 65536) {
+            opcode = OP_PUSHDATA2;
+        } else {
+            throw new RuntimeException("Unimplemented");
+        }
+        return addChunk(new ScriptChunk(opcode, copy));
     }
 
     public ScriptBuilder smallNum(int num) {
         checkArgument(num >= 0, "Cannot encode negative numbers with smallNum");
         checkArgument(num <= 16, "Cannot encode numbers larger than 16 with smallNum");
-        chunks.add(new ScriptChunk(true, new byte[]{(byte)Script.encodeToOpN(num)}));
-        return this;
+        return addChunk(new ScriptChunk(Script.encodeToOpN(num), null));
     }
 
     public Script build() {
@@ -162,5 +184,39 @@ public class ScriptBuilder {
     public static Script createP2SHOutputScript(byte[] hash) {
         checkArgument(hash.length == 20);
         return new ScriptBuilder().op(OP_HASH160).data(hash).op(OP_EQUAL).build();
+    }
+
+    /**
+     * Creates a scriptPubKey for the given redeem script.
+     */
+    public static Script createP2SHOutputScript(Script redeemScript) {
+        byte[] hash = Utils.sha256hash160(redeemScript.getProgram());
+        return ScriptBuilder.createP2SHOutputScript(hash);
+    }
+
+    /**
+     * Creates a P2SH output script with given public keys and threshold. Given public keys will be placed in
+     * redeem script in the lexicographical sorting order.
+     */
+    public static Script createP2SHOutputScript(int threshold, List<ECKey> pubkeys) {
+        Script redeemScript = createRedeemScript(threshold, pubkeys);
+        return createP2SHOutputScript(redeemScript);
+    }
+
+    /**
+     * Creates redeem script with given public keys and threshold. Given public keys will be placed in
+     * redeem script in the lexicographical sorting order.
+     */
+    public static Script createRedeemScript(int threshold, List<ECKey> pubkeys) {
+        pubkeys = new ArrayList<ECKey>(pubkeys);
+        final Comparator comparator = UnsignedBytes.lexicographicalComparator();
+        Collections.sort(pubkeys, new Comparator<ECKey>() {
+            @Override
+            public int compare(ECKey k1, ECKey k2) {
+                return comparator.compare(k1.getPubKey(), k2.getPubKey());
+            }
+        });
+
+        return ScriptBuilder.createMultiSigOutputScript(threshold, pubkeys);
     }
 }

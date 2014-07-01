@@ -65,12 +65,12 @@ public class TransactionBroadcast {
 
     public ListenableFuture<Transaction> broadcast() {
         log.info("Waiting for {} peers required for broadcast ...", minConnections);
-        ListenableFuture<PeerGroup> peerAvailabilityFuture = peerGroup.waitForPeers(minConnections);
-        peerAvailabilityFuture.addListener(new EnoughAvailablePeers(), Threading.SAME_THREAD);
+        peerGroup.waitForPeers(minConnections).addListener(new EnoughAvailablePeers(), Threading.SAME_THREAD);
         return future;
     }
 
     private class EnoughAvailablePeers implements Runnable {
+        @Override
         public void run() {
             // We now have enough connected peers to send the transaction.
             // This can be called immediately if we already have enough. Otherwise it'll be called from a peer
@@ -123,6 +123,7 @@ public class TransactionBroadcast {
     }
 
     private class ConfidenceChange implements TransactionConfidence.Listener {
+        @Override
         public void onConfidenceChanged(Transaction tx, ChangeReason reason) {
             // The number of peers that announced this tx has gone up.
             final TransactionConfidence conf = tx.getConfidence();

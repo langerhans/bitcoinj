@@ -11,6 +11,7 @@
     <module>core</module>
     <module>examples</module>
     <module>tools</module>
+    <module>orchid</module>
   </modules>
 
   <parent>
@@ -49,13 +50,6 @@
       <post>https://groups.google.com/forum/#!forum/dogecoinj</post>
     </mailingList>
   </mailingLists>-->
-
-  <repositories>
-    <repository>
-        <id>dogecoinj-distribution</id>
-        <url>https://github.com/langerhans/dogecoinj-new</url>
-    </repository>
-  </repositories>
 
   <!-- Common build plugin configuration -->
   <build>
@@ -100,4 +94,25 @@
     <junit.version>4.8.2</junit.version>
     <generated.sourceDirectory>gen</generated.sourceDirectory>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>doclint-java8-disable</id>
+      <activation>
+        <jdk>[1.8,</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <configuration>
+              <additionalparam>-Xdoclint:none</additionalparam>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>

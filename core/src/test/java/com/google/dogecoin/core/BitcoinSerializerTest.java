@@ -1,5 +1,6 @@
 /**
  * Copyright 2011 Noa Resare
+ * Copyright 2014 Andreas Schildbach
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +17,22 @@
 
 package com.google.dogecoin.core;
 
-
 import com.google.dogecoin.params.MainNetParams;
 import org.junit.Test;
-import org.spongycastle.util.encoders.Hex;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import static com.google.dogecoin.core.Utils.HEX;
 import static org.junit.Assert.*;
 
 public class BitcoinSerializerTest {
-    private final byte[] addrMessage = Hex.decode("c0c0c0c06164647200000000000000001f00000081de49a4019c36d" +
+    private final byte[] addrMessage = Utils.HEX.decode("c0c0c0c06164647200000000000000001f00000081de49a4019c36d" +
             "052010000000000000000000000000000000000ffff614df4e2581c");
 
-    private final byte[] txMessage = Hex.decode(
+    private final byte[] txMessage = Utils.HEX.decode(
             "c0 c0 c0 c0 74 78 00 00  00 00 00 00 00 00 00" +
             "00 54 01 00 00 1a bf fa  af 01 00 00 00 02 3d" +
             "45 a8 84 b4 6a 2b b1 dd  b3 fc 6c df 30 87 9f" +
@@ -163,7 +163,7 @@ public class BitcoinSerializerTest {
     public void testHeaders1() throws Exception {
         BitcoinSerializer bs = new BitcoinSerializer(MainNetParams.get());
 
-        HeadersMessage hm = (HeadersMessage) bs.deserialize(ByteBuffer.wrap(Hex.decode("f9beb4d9686561" +
+        HeadersMessage hm = (HeadersMessage) bs.deserialize(ByteBuffer.wrap(HEX.decode("f9beb4d9686561" +
                 "646572730000000000520000005d4fab8101010000006fe28c0ab6f1b372c1a6a246ae6" +
                 "3f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677b" +
                 "a1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e3629900")));
@@ -176,7 +176,7 @@ public class BitcoinSerializerTest {
 
         assertNull(block.transactions);
 
-        assertEquals(Utils.bytesToHexString(block.getMerkleRoot().getBytes()),
+        assertEquals(Utils.HEX.encode(block.getMerkleRoot().getBytes()),
                 "0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098");
     }
 
@@ -188,7 +188,7 @@ public class BitcoinSerializerTest {
     public void testHeaders2() throws Exception {
         BitcoinSerializer bs = new BitcoinSerializer(MainNetParams.get());
 
-        HeadersMessage hm = (HeadersMessage) bs.deserialize(ByteBuffer.wrap(Hex.decode("f9beb4d96865616465" +
+        HeadersMessage hm = (HeadersMessage) bs.deserialize(ByteBuffer.wrap(HEX.decode("f9beb4d96865616465" +
                 "72730000000000e701000085acd4ea06010000006fe28c0ab6f1b372c1a6a246ae63f74f931e" +
                 "8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1c" +
                 "db606e857233e0e61bc6649ffff001d01e3629900010000004860eb18bf1b1620e37e9490fc8a" +
@@ -235,7 +235,7 @@ public class BitcoinSerializerTest {
         }
 
         // Message with a Message size which is 1 too big, in little endian format.
-        byte[] wrongMessageLength = Hex.decode("000000000000000000000000010000020000000000");
+        byte[] wrongMessageLength = HEX.decode("000000000000000000000000010000020000000000");
         try {
             new BitcoinSerializer.BitcoinPacketHeader(ByteBuffer.wrap(wrongMessageLength));
             fail();
@@ -247,7 +247,7 @@ public class BitcoinSerializerTest {
     @Test
     public void testSeekPastMagicBytes() {
         // Fail in another way, there is data in the stream but no magic bytes.
-        byte[] brokenMessage = Hex.decode("000000");
+        byte[] brokenMessage = HEX.decode("000000");
         try {
             new BitcoinSerializer(MainNetParams.get()).seekPastMagicBytes(ByteBuffer.wrap(brokenMessage));
             fail();

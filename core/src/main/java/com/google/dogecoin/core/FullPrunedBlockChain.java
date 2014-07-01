@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -175,12 +174,12 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                         sigOps += tx.getSigOpCount();
                 }
             }
-            BigInteger totalFees = BigInteger.ZERO;
-            BigInteger coinbaseValue = null;
+            Coin totalFees = Coin.ZERO;
+            Coin coinbaseValue = null;
             for (final Transaction tx : block.transactions) {
                 boolean isCoinBase = tx.isCoinBase();
-                BigInteger valueIn = BigInteger.ZERO;
-                BigInteger valueOut = BigInteger.ZERO;
+                Coin valueIn = Coin.ZERO;
+                Coin valueOut = Coin.ZERO;
                 final List<Script> prevOutScripts = new LinkedList<Script>();
                 if (!isCoinBase) {
                     // For each input of the transaction remove the corresponding output from the set of unspent
@@ -224,12 +223,12 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                 }
                 // All values were already checked for being non-negative (as it is verified in Transaction.verify())
                 // but we check again here just for defence in depth. Transactions with zero output value are OK.
-                if (valueOut.signum() < 0 || valueOut.compareTo(params.MAX_MONEY) > 0)
-                    throw new VerificationException("Transaction output value out of rage");
+                if (valueOut.signum() < 0 || valueOut.compareTo(NetworkParameters.MAX_MONEY) > 0)
+                    throw new VerificationException("Transaction output value out of range");
                 if (isCoinBase) {
                     coinbaseValue = valueOut;
                 } else {
-                    if (valueIn.compareTo(valueOut) < 0 || valueIn.compareTo(params.MAX_MONEY) > 0)
+                    if (valueIn.compareTo(valueOut) < 0 || valueIn.compareTo(NetworkParameters.MAX_MONEY) > 0)
                         throw new VerificationException("Transaction input value out of range");
                     totalFees = totalFees.add(valueIn.subtract(valueOut));
                 }
@@ -241,7 +240,7 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                     listScriptVerificationResults.add(future);
                 }
             }
-            if (totalFees.compareTo(params.MAX_MONEY) > 0 || block.getBlockInflation(height).add(totalFees).compareTo(coinbaseValue) < 0)
+            if (totalFees.compareTo(NetworkParameters.MAX_MONEY) > 0 || block.getBlockInflation(height).add(totalFees).compareTo(coinbaseValue) < 0)
                 throw new VerificationException("Transaction fees out of range");
             for (Future<VerificationException> future : listScriptVerificationResults) {
                 VerificationException e;
@@ -300,16 +299,16 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                             throw new VerificationException("Block failed BIP30 test!");
                     }
                 }
-                BigInteger totalFees = BigInteger.ZERO;
-                BigInteger coinbaseValue = null;
+                Coin totalFees = Coin.ZERO;
+                Coin coinbaseValue = null;
                 
                 if (scriptVerificationExecutor.isShutdown())
                     scriptVerificationExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
                 List<Future<VerificationException>> listScriptVerificationResults = new ArrayList<Future<VerificationException>>(transactions.size());
                 for(final Transaction tx : transactions) {
                     boolean isCoinBase = tx.isCoinBase();
-                    BigInteger valueIn = BigInteger.ZERO;
-                    BigInteger valueOut = BigInteger.ZERO;
+                    Coin valueIn = Coin.ZERO;
+                    Coin valueOut = Coin.ZERO;
                     final List<Script> prevOutScripts = new LinkedList<Script>();
                     if (!isCoinBase) {
                         for (int index = 0; index < tx.getInputs().size(); index++) {
@@ -346,12 +345,12 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                     }
                     // All values were already checked for being non-negative (as it is verified in Transaction.verify())
                     // but we check again here just for defence in depth. Transactions with zero output value are OK.
-                    if (valueOut.signum() < 0 || valueOut.compareTo(params.MAX_MONEY) > 0)
-                        throw new VerificationException("Transaction output value out of rage");
+                    if (valueOut.signum() < 0 || valueOut.compareTo(NetworkParameters.MAX_MONEY) > 0)
+                        throw new VerificationException("Transaction output value out of range");
                     if (isCoinBase) {
                         coinbaseValue = valueOut;
                     } else {
-                        if (valueIn.compareTo(valueOut) < 0 || valueIn.compareTo(params.MAX_MONEY) > 0)
+                        if (valueIn.compareTo(valueOut) < 0 || valueIn.compareTo(NetworkParameters.MAX_MONEY) > 0)
                             throw new VerificationException("Transaction input value out of range");
                         totalFees = totalFees.add(valueIn.subtract(valueOut));
                     }
@@ -363,7 +362,7 @@ public class FullPrunedBlockChain extends AbstractBlockChain {
                         listScriptVerificationResults.add(future);
                     }
                 }
-                if (totalFees.compareTo(params.MAX_MONEY) > 0 ||
+                if (totalFees.compareTo(NetworkParameters.MAX_MONEY) > 0 ||
                         newBlock.getHeader().getBlockInflation(newBlock.getHeight()).add(totalFees).compareTo(coinbaseValue) < 0)
                     throw new VerificationException("Transaction fees out of range");
                 txOutChanges = new TransactionOutputChanges(txOutsCreated, txOutsSpent);

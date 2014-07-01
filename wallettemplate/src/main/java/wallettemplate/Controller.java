@@ -15,7 +15,6 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import wallettemplate.controls.ClickableBitcoinAddress;
 
-import java.math.BigInteger;
 import java.util.Date;
 
 import static wallettemplate.Main.bitcoin;
@@ -41,7 +40,7 @@ public class Controller {
 
     public void onBitcoinSetup() {
         bitcoin.wallet().addEventListener(new BalanceUpdater());
-        addressControl.setAddress(bitcoin.wallet().getKeys().get(0).toAddress(Main.params).toString());
+        addressControl.setAddress(bitcoin.wallet().currentReceiveKey().toAddress(Main.params).toString());
         refreshBalanceLabel();
     }
 
@@ -94,7 +93,7 @@ public class Controller {
     }
 
     public void refreshBalanceLabel() {
-        final BigInteger amount = bitcoin.wallet().getBalance(Wallet.BalanceType.ESTIMATED);
-        balance.setText(Utils.bitcoinValueToFriendlyString(amount));
+        final Coin amount = bitcoin.wallet().getBalance(Wallet.BalanceType.ESTIMATED);
+        balance.setText(amount.toFriendlyString());
     }
 }

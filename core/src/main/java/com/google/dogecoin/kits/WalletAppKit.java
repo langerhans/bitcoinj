@@ -22,11 +22,13 @@ import com.google.dogecoin.net.discovery.DnsDiscovery;
 import com.google.dogecoin.store.BlockStoreException;
 import com.google.dogecoin.store.SPVBlockStore;
 import com.google.dogecoin.store.WalletProtobufSerializer;
+import com.google.dogecoin.wallet.KeyChainGroup;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Service;
+import com.subgraph.orchid.TorClient;
+import org.bitcoinj.wallet.Protos;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,32 +36,34 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
  * <p>Utility class that wraps the boilerplate needed to set up a new SPV bitcoinj app. Instantiate it with a directory
- * and file prefix, optionally configure a few things, then use start or startAndWait. The object will construct and
- * configure a {@link BlockChain}, {@link SPVBlockStore}, {@link Wallet} and {@link PeerGroup}. Depending on the value
- * of the blockingStartup property, startup will be considered complete once the block chain has fully synchronized,
- * so it can take a while.</p>
+ * and file prefix, optionally configure a few things, then use startAsync and optionally awaitRunning. The object will
+ * construct and configure a {@link BlockChain}, {@link SPVBlockStore}, {@link Wallet} and {@link PeerGroup}. Depending
+ * on the value of the blockingStartup property, startup will be considered complete once the block chain has fully
+ * synchronized, so it can take a while.</p>
  *
  * <p>To add listeners and modify the objects that are constructed, you can either do that by overriding the
  * {@link #onSetupCompleted()} method (which will run on a background thread) and make your changes there,
  * or by waiting for the service to start and then accessing the objects from wherever you want. However, you cannot
  * access the objects this class creates until startup is complete.</p>
  *
- * <p>The asynchronous design of this class may seem puzzling (just use {@link #startAndWait()} if you don't want that).
+ * <p>The asynchronous design of this class may seem puzzling (just use {@link #awaitRunning()} if you don't want that).
  * It is to make it easier to fit bitcoinj into GUI apps, which require a high degree of responsiveness on their main
  * thread which handles all the animation and user interaction. Even when blockingStart is false, initializing bitcoinj
  * means doing potentially blocking file IO, generating keys and other potentially intensive operations. By running it
  * on a background thread, there's no risk of accidentally causing UI lag.</p>
  *
- * <p>Note that {@link #startAndWait()} can throw an unchecked {@link com.google.common.util.concurrent.UncheckedExecutionException}
+ * <p>Note that {@link #awaitRunning()} can throw an unchecked {@link java.lang.IllegalStateException}
  * if anything goes wrong during startup - you should probably handle it and use {@link Exception#getCause()} to figure
- * out what went wrong more precisely. Same thing if you use the async start() method.</p>
+ * out what went wrong more precisely. Same thing if you just use the {@link #startAsync()} method.</p>
  */
 public class WalletAppKit extends AbstractIdleService {
     protected final String filePrefix;
@@ -78,7 +82,9 @@ public class WalletAppKit extends AbstractIdleService {
     protected boolean autoStop = true;
     protected InputStream checkpoints;
     protected boolean blockingStartup = true;
+    protected boolean useTor = false;   // Perhaps in future we can change this to true.
     protected String userAgent, version;
+    protected WalletProtobufSerializer.WalletFactory walletFactory;
 
     public WalletAppKit(NetworkParameters params, File directory, String filePrefix) {
         this.params = checkNotNull(params);
@@ -158,12 +164,23 @@ public class WalletAppKit extends AbstractIdleService {
     }
 
     /**
-     * <p>Override this to load all wallet extensions if any are necessary.</p>
+     * If called, then an embedded Tor client library will be used to connect to the P2P network. The user does not need
+     * any additional software for this: it's all pure Java. As of April 2014 <b>this mode is experimental</b>.
+     */
+    public WalletAppKit useTor() {
+        this.useTor = true;
+        return this;
+    }
+
+    /**
+     * <p>Override this to return wallet extensions if any are necessary.</p>
      *
      * <p>When this is called, chain(), store(), and peerGroup() will return the created objects, however they are not
-     * initialized/started</p>
+     * initialized/started.</p>
      */
-    protected void addWalletExtensions() throws Exception { }
+    protected List<WalletExtension> provideWalletExtensions() throws Exception {
+        return ImmutableList.of();
+    }
 
     /**
      * This method is invoked on a background thread after all objects are initialised, but before the peer group
@@ -179,7 +196,6 @@ public class WalletAppKit extends AbstractIdleService {
                 throw new IOException("Could not create named directory.");
             }
         }
-        FileInputStream walletStream = null;
         try {
             File chainFile = new File(directory, filePrefix + ".spvchain");
             boolean chainFileExists = chainFile.exists();
@@ -194,9 +210,9 @@ public class WalletAppKit extends AbstractIdleService {
                 // object.
                 long time = Long.MAX_VALUE;
                 if (vWalletFile.exists()) {
-                    Wallet wallet = new Wallet(params);
                     FileInputStream stream = new FileInputStream(vWalletFile);
-                    new WalletProtobufSerializer().readWallet(WalletProtobufSerializer.parseToProto(stream), wallet);
+                    final WalletProtobufSerializer serializer = new WalletProtobufSerializer();
+                    final Wallet wallet = serializer.readWallet(params, null, WalletProtobufSerializer.parseToProto(stream));
                     time = wallet.getEarliestKeyCreationTime();
                 }
                 CheckpointManager.checkpoint(params, checkpoints, vStore, time);
@@ -206,22 +222,37 @@ public class WalletAppKit extends AbstractIdleService {
             if (this.userAgent != null)
                 vPeerGroup.setUserAgent(userAgent, version);
             if (vWalletFile.exists()) {
-                walletStream = new FileInputStream(vWalletFile);
-                vWallet = new Wallet(params);
-                addWalletExtensions(); // All extensions must be present before we deserialize
-                new WalletProtobufSerializer().readWallet(WalletProtobufSerializer.parseToProto(walletStream), vWallet);
-                if (shouldReplayWallet)
-                    vWallet.clearTransactions(0);
+                FileInputStream walletStream = new FileInputStream(vWalletFile);
+                try {
+                    List<WalletExtension> extensions = provideWalletExtensions();
+                    vWallet = new Wallet(params);
+                    WalletExtension[] extArray = extensions.toArray(new WalletExtension[extensions.size()]);
+                    Protos.Wallet proto = WalletProtobufSerializer.parseToProto(walletStream);
+                    final WalletProtobufSerializer serializer;
+                    if (walletFactory != null)
+                        serializer = new WalletProtobufSerializer(walletFactory);
+                    else
+                        serializer = new WalletProtobufSerializer();
+                    vWallet = serializer.readWallet(params, extArray, proto);
+                    if (shouldReplayWallet)
+                        vWallet.clearTransactions(0);
+                } finally {
+                    walletStream.close();
+                }
             } else {
-                vWallet = new Wallet(params);
-                vWallet.addKey(new ECKey());
-                addWalletExtensions();
+                vWallet = walletFactory != null ? walletFactory.create(params, new KeyChainGroup(params)) : new Wallet(params);
+                vWallet.freshReceiveKey();
+                for (WalletExtension e : provideWalletExtensions()) {
+                    vWallet.addExtension(e);
+                }
+                vWallet.saveToFile(vWalletFile);
             }
-            if (useAutoSave) vWallet.autosaveToFile(vWalletFile, 1, TimeUnit.SECONDS, null);
+            if (useAutoSave) vWallet.autosaveToFile(vWalletFile, 200, TimeUnit.MILLISECONDS, null);
             // Set up peer addresses or discovery first, so if wallet extensions try to broadcast a transaction
             // before we're actually connected the broadcast waits for an appropriate number of connections.
             if (peerAddresses != null) {
                 for (PeerAddress addr : peerAddresses) vPeerGroup.addAddress(addr);
+                vPeerGroup.setMaxConnections(peerAddresses.length);
                 peerAddresses = null;
             } else {
                 vPeerGroup.addPeerDiscovery(new DnsDiscovery(params));
@@ -257,13 +288,15 @@ public class WalletAppKit extends AbstractIdleService {
             }
         } catch (BlockStoreException e) {
             throw new IOException(e);
-        } finally {
-            if (walletStream != null) walletStream.close();
         }
     }
 
-    protected PeerGroup createPeerGroup() {
-        return new PeerGroup(params, vChain);
+    protected PeerGroup createPeerGroup() throws TimeoutException {
+        if (useTor) {
+            return PeerGroup.newWithTor(params, vChain, new TorClient());
+        }
+        else
+            return new PeerGroup(params, vChain);
     }
 
     private void installShutdownHook() {

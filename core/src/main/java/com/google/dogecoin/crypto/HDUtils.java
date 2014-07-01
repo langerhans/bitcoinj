@@ -1,5 +1,6 @@
 /**
  * Copyright 2013 Matija Mazi.
+ * Copyright 2014 Giannis Dzegoutanis.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +18,27 @@
 package com.google.dogecoin.crypto;
 
 import com.google.dogecoin.core.ECKey;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.spongycastle.crypto.digests.SHA512Digest;
 import org.spongycastle.crypto.macs.HMac;
 import org.spongycastle.crypto.params.KeyParameter;
-import org.spongycastle.math.ec.ECPoint;
 
+import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Static utilities used in BIP 32 Hierarchical Deterministic Wallets (HDW).
  */
 public final class HDUtils {
-
-    private HDUtils() { }
+    private static final Joiner PATH_JOINER = Joiner.on("/");
 
     static HMac createHmacSha512Digest(byte[] key) {
         SHA512Digest digest = new SHA512Digest();
@@ -62,11 +69,34 @@ public final class HDUtils {
         return bytes;
     }
 
-    static byte[] getBytes(ECPoint pubKPoint) {
-        return pubKPoint.getEncoded(true);
+    public static ImmutableList<ChildNumber> append(ImmutableList<ChildNumber> path, ChildNumber childNumber) {
+        return ImmutableList.<ChildNumber>builder().addAll(path).add(childNumber).build();
     }
 
-    static ImmutableList<ChildNumber> append(ImmutableList<ChildNumber> path, ChildNumber childNumber) {
-        return ImmutableList.<ChildNumber>builder().addAll(path).add(childNumber).build();
+    public static String formatPath(List<ChildNumber> path) {
+        return PATH_JOINER.join(Iterables.concat(Collections.singleton("M"), path));
+    }
+
+    /**
+     * The path is a human-friendly representation of the deterministic path. For example:
+     *
+     * "44' / 0' / 0' / 1 / 1"
+     *
+     * Where a single quote (') means hardened key. Spaces are ignored.
+     */
+    public static List<ChildNumber> parsePath(@Nonnull String path) {
+        String[] parsedNodes = path.split("/");
+        List<ChildNumber> nodes = new ArrayList<ChildNumber>();
+
+        for (String n : parsedNodes) {
+            n = n.replaceAll(" ", "");
+            if (n.length() == 0) continue;
+            boolean isHard = n.endsWith("'");
+            if (isHard) n = n.substring(0, n.length() - 1);
+            int nodeNumber = Integer.parseInt(n);
+            nodes.add(new ChildNumber(nodeNumber, isHard));
+        }
+
+        return nodes;
     }
 }

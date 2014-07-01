@@ -111,12 +111,12 @@ public class BuildCheckpoints {
         CheckpointManager manager = new CheckpointManager(PARAMS, new FileInputStream(CHECKPOINTS_FILE));
         checkState(manager.numCheckpoints() == checkpoints.size());
 
-        if (PARAMS.getId() == NetworkParameters.ID_MAINNET) {
+        if (PARAMS.getId().equals(NetworkParameters.ID_MAINNET)) {
         StoredBlock test = manager.getCheckpointBefore(1394276500);  // Just after block 131760
         checkState(test.getHeight() == 131760);
             checkState(test.getHeader().getHashAsString()
                     .equals("8335a8d29326c09f35efe982e640b834e383db26e770d0fdbedabc718fb89272"));
-        } else if (PARAMS.getId() == NetworkParameters.ID_TESTNET) { // FIXME
+        } else if (PARAMS.getId().equals(NetworkParameters.ID_TESTNET)) {
             StoredBlock test = manager.getCheckpointBefore(1390500000); // Thu Jan 23 19:00:00 CET 2014
             checkState(test.getHeight() == 167328);
             checkState(test.getHeader().getHashAsString().equals("000000000000002e00a243fe9aa49c78f573091d17372c2ae0ae5e0f24f55b52"));

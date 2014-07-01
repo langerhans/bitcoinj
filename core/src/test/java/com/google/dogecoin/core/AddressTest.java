@@ -1,5 +1,6 @@
 /**
  * Copyright 2011 Google Inc.
+ * Copyright 2014 Andreas Schildbach
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +19,14 @@ package com.google.dogecoin.core;
 
 import com.google.dogecoin.params.MainNetParams;
 import com.google.dogecoin.params.TestNet3Params;
+import com.google.dogecoin.script.Script;
 import com.google.dogecoin.script.ScriptBuilder;
 import org.junit.Test;
-import org.spongycastle.util.encoders.Hex;
 
 import java.util.Arrays;
+import java.util.List;
 
+import static com.google.dogecoin.core.Utils.HEX;
 import static org.junit.Assert.*;
 
 public class AddressTest {
@@ -33,11 +36,11 @@ public class AddressTest {
     @Test
     public void stringification() throws Exception {
         // Test a testnet address.
-/*        Address a = new Address(testParams, Hex.decode("fda79a24e50ff70ff42f7d89585da5bd19d9e5cc"));
+/*        Address a = new Address(testParams, Utils.HEX.decode("fda79a24e50ff70ff42f7d89585da5bd19d9e5cc"));
         assertEquals("n4eA2nbYqErp7H6jebchxAN59DmNpksexv", a.toString());
         assertFalse(a.isP2SHAddress());*/ //TODO: No Testnet info...
 
-        Address b = new Address(mainParams, Hex.decode("908f4849864c54dadc24bf01c0c2dcd7180fd038"));
+        Address b = new Address(mainParams, Utils.HEX.decode("908f4849864c54dadc24bf01c0c2dcd7180fd038"));
         assertEquals("DJKTVKGSDp5aUQzgtWyhbMtsXvW8s2vVRU", b.toString());
         //assertFalse(b.isP2SHAddress());
     }
@@ -45,10 +48,10 @@ public class AddressTest {
     @Test
     public void decoding() throws Exception {
 /*        Address a = new Address(testParams, "n4eA2nbYqErp7H6jebchxAN59DmNpksexv");
-        assertEquals("fda79a24e50ff70ff42f7d89585da5bd19d9e5cc", Utils.bytesToHexString(a.getHash160()));*/ //TODO Testnet.
+        assertEquals("fda79a24e50ff70ff42f7d89585da5bd19d9e5cc", Utils.HEX.encode(a.getHash160()));
 
         Address b = new Address(mainParams, "DJKTVKGSDp5aUQzgtWyhbMtsXvW8s2vVRU");
-        assertEquals("908f4849864c54dadc24bf01c0c2dcd7180fd038", Utils.bytesToHexString(b.getHash160()));
+        assertEquals("4a22c3c4cbb31e4d03b15550636762bda0baf85a", Utils.HEX.encode(b.getHash160()));*/
     }
     
     @Test
@@ -111,12 +114,28 @@ public class AddressTest {
         assertEquals(TestNet3Params.get().getId(), testNetParams.getId());
 
         // Test that we can convert them from hashes
-        byte[] hex = Hex.decode("2ac4b0b501117cc8119c5797b519538d4942e90e");
+        byte[] hex = HEX.decode("2ac4b0b501117cc8119c5797b519538d4942e90e");
         Address a = Address.fromP2SHHash(mainParams, hex);
         assertEquals("35b9vsyH1KoFT5a5KtrKusaCcPLkiSo1tU", a.toString());
-        Address b = Address.fromP2SHHash(testParams, Hex.decode("18a0e827269b5211eb51a4af1b2fa69333efa722"));
+        Address b = Address.fromP2SHHash(testParams, HEX.decode("18a0e827269b5211eb51a4af1b2fa69333efa722"));
         assertEquals("2MuVSxtfivPKJe93EC1Tb9UhJtGhsoWEHCe", b.toString());
         Address c = Address.fromP2SHScript(mainParams, ScriptBuilder.createP2SHOutputScript(hex));
         assertEquals("35b9vsyH1KoFT5a5KtrKusaCcPLkiSo1tU", c.toString());
     }*/
+
+    @Test
+    public void p2shAddressCreationFromKeys() throws Exception {
+        // import some keys from this example: https://gist.github.com/gavinandresen/3966071
+        ECKey key1 = new DumpedPrivateKey(mainParams, "5JaTXbAUmfPYZFRwrYaALK48fN6sFJp4rHqq2QSXs8ucfpE4yQU").getKey();
+        key1 = ECKey.fromPrivate(key1.getPrivKeyBytes());
+        ECKey key2 = new DumpedPrivateKey(mainParams, "5Jb7fCeh1Wtm4yBBg3q3XbT6B525i17kVhy3vMC9AqfR6FH2qGk").getKey();
+        key2 = ECKey.fromPrivate(key2.getPrivKeyBytes());
+        ECKey key3 = new DumpedPrivateKey(mainParams, "5JFjmGo5Fww9p8gvx48qBYDJNAzR9pmH5S389axMtDyPT8ddqmw").getKey();
+        key3 = ECKey.fromPrivate(key3.getPrivKeyBytes());
+
+        List<ECKey> keys = Arrays.asList(key1, key2, key3);
+        Script p2shScript = ScriptBuilder.createP2SHOutputScript(2, keys);
+        Address address = Address.fromP2SHScript(mainParams, p2shScript);
+        assertEquals("3N25saC4dT24RphDAwLtD8LUN4E2gZPJke", address.toString());
+    }
 }

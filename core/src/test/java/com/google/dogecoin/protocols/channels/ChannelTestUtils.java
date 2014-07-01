@@ -1,12 +1,13 @@
 package com.google.dogecoin.protocols.channels;
 
+import com.google.dogecoin.core.Coin;
 import com.google.dogecoin.core.Sha256Hash;
 import com.google.dogecoin.core.TransactionBroadcaster;
 import com.google.dogecoin.core.Utils;
 import com.google.dogecoin.core.Wallet;
+
 import org.bitcoin.paymentchannel.Protos;
 
-import java.math.BigInteger;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -35,7 +36,7 @@ public class ChannelTestUtils {
         }
 
         @Override
-        public void paymentIncrease(BigInteger by, BigInteger to) {
+        public void paymentIncrease(Coin by, Coin to) {
             q.add(to);
         }
 
@@ -49,8 +50,8 @@ public class ChannelTestUtils {
             return msg;
         }
 
-        public void checkTotalPayment(BigInteger valueSoFar) throws InterruptedException {
-            BigInteger lastSeen = (BigInteger) q.take();
+        public void checkTotalPayment(Coin valueSoFar) throws InterruptedException {
+            Coin lastSeen = (Coin) q.take();
             assertEquals(lastSeen, valueSoFar);
         }
     }
@@ -108,7 +109,7 @@ public class ChannelTestUtils {
     public static RecordingPair makeRecorders(final Wallet serverWallet, final TransactionBroadcaster mockBroadcaster) {
         RecordingPair pair = new RecordingPair();
         pair.serverRecorder = new RecordingServerConnection();
-        pair.server = new PaymentChannelServer(mockBroadcaster, serverWallet, Utils.COIN, pair.serverRecorder);
+        pair.server = new PaymentChannelServer(mockBroadcaster, serverWallet, Coin.COIN, pair.serverRecorder);
         pair.clientRecorder = new RecordingClientConnection();
         return pair;
     }

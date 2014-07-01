@@ -17,11 +17,14 @@
 
 package com.google.dogecoin.wallet;
 
+import com.google.dogecoin.core.Coin;
 import com.google.dogecoin.core.NetworkParameters;
 import com.google.dogecoin.core.Transaction;
 import com.google.dogecoin.core.TransactionConfidence;
+import com.google.dogecoin.core.TransactionInput;
 import com.google.dogecoin.core.TransactionOutput;
 import com.google.dogecoin.core.Wallet;
+import com.google.dogecoin.script.ScriptChunk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +41,13 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class DefaultRiskAnalysis implements RiskAnalysis {
     private static final Logger log = LoggerFactory.getLogger(DefaultRiskAnalysis.class);
+
+    /**
+     * Any standard output smaller than this value (in satoshis) will be considered risky, as it's most likely be
+     * rejected by the network. Currently it's 546 satoshis. This is different from {@link Transaction#MIN_NONDUST_OUTPUT}
+     * because of an upcoming fee change in Bitcoin Core 0.9.
+     */
+    public static final Coin MIN_ANALYSIS_NONDUST_OUTPUT = Coin.COIN; // DOGE: Can send 1 koinu transactions if you add the fee...
 
     protected final Transaction tx;
     protected final List<Transaction> dependencies;
@@ -91,12 +101,13 @@ public class DefaultRiskAnalysis implements RiskAnalysis {
 
     /**
      * The reason a transaction is considered non-standard, returned by
-     * {@link #isStandard(com.google.bitcoin.core.Transaction)}.
+     * {@link #isStandard(com.google.dogecoin.core.Transaction)}.
      */
     public enum RuleViolation {
         NONE,
         VERSION,
-        DUST
+        DUST,
+        SHORTEST_POSSIBLE_PUSHDATA
     }
 
     /**
@@ -115,9 +126,28 @@ public class DefaultRiskAnalysis implements RiskAnalysis {
         final List<TransactionOutput> outputs = tx.getOutputs();
         for (int i = 0; i < outputs.size(); i++) {
             TransactionOutput output = outputs.get(i);
-            if (output.getMinNonDustValue().compareTo(output.getValue()) > 0) {
+            if (MIN_ANALYSIS_NONDUST_OUTPUT.compareTo(output.getValue()) > 0) {
                 log.warn("TX considered non-standard due to output {} being dusty", i);
                 return RuleViolation.DUST;
+            }
+            for (ScriptChunk chunk : output.getScriptPubKey().getChunks()) {
+                if (chunk.isPushData() && !chunk.isShortestPossiblePushData()) {
+                    log.warn("TX considered non-standard due to output {} having a longer than necessary data push: {}",
+                            i, chunk);
+                    return RuleViolation.SHORTEST_POSSIBLE_PUSHDATA;
+                }
+            }
+        }
+
+        final List<TransactionInput> inputs = tx.getInputs();
+        for (int i = 0; i < inputs.size(); i++) {
+            TransactionInput input = inputs.get(i);
+            for (ScriptChunk chunk : input.getScriptSig().getChunks()) {
+                if (chunk.data != null && !chunk.isShortestPossiblePushData()) {
+                    log.warn("TX considered non-standard due to input {} having a longer than necessary data push: {}",
+                            i, chunk);
+                    return RuleViolation.SHORTEST_POSSIBLE_PUSHDATA;
+                }
             }
         }
 

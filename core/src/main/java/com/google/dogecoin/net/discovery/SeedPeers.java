@@ -62,6 +62,7 @@ public class SeedPeers implements PeerDiscovery {
     /**
      * Returns an array containing all the Bitcoin nodes within the list.
      */
+    @Override
     public InetSocketAddress[] getPeers(long timeoutValue, TimeUnit timeoutUnit) throws PeerDiscoveryException {
         try {
             return allPeers();
@@ -89,17 +90,9 @@ public class SeedPeers implements PeerDiscovery {
 
     public static int[] seedAddrs =
             {
-                    0x6E71F3A2, 0x0A14CD43, 0x2E361448, 0x20C9294E,
-                    0x72B5B992, 0x05614C90, 0x2F00FB94, 0xE6601F59,
-                    0x1C13A5BC, 0x1AE99F55, 0xFC05555F, 0x08CB49B8,
-                    0x249B4EA6, 0xA840F3A2, 0x08CABA5D, 0xE13AF3A2,
-
-                    0xC555EC6D, 0x6E71F3A2, //TODO We need more trusted peers.
-                    0x14242E4E,
-                    0x5110555F,
-                    0x901D555F,
             };
     
+    @Override
     public void shutdown() {
     }
 }

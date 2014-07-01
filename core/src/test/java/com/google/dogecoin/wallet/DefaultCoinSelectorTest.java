@@ -19,16 +19,17 @@ package com.google.dogecoin.wallet;
 import com.google.dogecoin.core.*;
 import com.google.dogecoin.params.RegTestParams;
 import com.google.dogecoin.params.UnitTestParams;
+import com.google.dogecoin.testing.FakeTxBuilder;
 import com.google.dogecoin.utils.TestUtils;
 import com.google.dogecoin.utils.TestWithWallet;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
 
+import static com.google.dogecoin.core.Coin.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.*;
 
@@ -72,14 +73,14 @@ public class DefaultCoinSelectorTest extends TestWithWallet {
     @Test
     public void depthOrdering() throws Exception {
         // Send two transactions in two blocks on top of each other.
-        Transaction t1 = checkNotNull(sendMoneyToWallet(Utils.COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
-        Transaction t2 = checkNotNull(sendMoneyToWallet(Utils.COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
+        Transaction t1 = checkNotNull(sendMoneyToWallet(COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
+        Transaction t2 = checkNotNull(sendMoneyToWallet(COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
 
         // Check we selected just the oldest one.
         DefaultCoinSelector selector = new DefaultCoinSelector();
-        CoinSelection selection = selector.select(Utils.COIN, wallet.calculateAllSpendCandidates(true));
+        CoinSelection selection = selector.select(COIN, wallet.calculateAllSpendCandidates(true));
         assertTrue(selection.gathered.contains(t1.getOutputs().get(0)));
-        assertEquals(Utils.COIN, selection.valueGathered);
+        assertEquals(COIN, selection.valueGathered);
 
         // Check we ordered them correctly (by depth).
         ArrayList<TransactionOutput> candidates = new ArrayList<TransactionOutput>();
@@ -94,12 +95,12 @@ public class DefaultCoinSelectorTest extends TestWithWallet {
     public void coinAgeOrdering() throws Exception {
         // Send three transactions in four blocks on top of each other. Coin age of t1 is 1*4=4, coin age of t2 = 2*2=4
         // and t3=0.01.
-        Transaction t1 = checkNotNull(sendMoneyToWallet(Utils.COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
+        Transaction t1 = checkNotNull(sendMoneyToWallet(COIN, AbstractBlockChain.NewBlockType.BEST_CHAIN));
         // Padding block.
-        wallet.notifyNewBestBlock(TestUtils.createFakeBlock(blockStore).storedBlock);
-        final BigInteger TWO_COINS = Utils.COIN.multiply(BigInteger.valueOf(2));
+        wallet.notifyNewBestBlock(FakeTxBuilder.createFakeBlock(blockStore).storedBlock);
+        final Coin TWO_COINS = COIN.multiply(2);
         Transaction t2 = checkNotNull(sendMoneyToWallet(TWO_COINS, AbstractBlockChain.NewBlockType.BEST_CHAIN));
-        Transaction t3 = checkNotNull(sendMoneyToWallet(Utils.CENT, AbstractBlockChain.NewBlockType.BEST_CHAIN));
+        Transaction t3 = checkNotNull(sendMoneyToWallet(CENT, AbstractBlockChain.NewBlockType.BEST_CHAIN));
 
         // Should be ordered t2, t1, t3.
         ArrayList<TransactionOutput> candidates = new ArrayList<TransactionOutput>();

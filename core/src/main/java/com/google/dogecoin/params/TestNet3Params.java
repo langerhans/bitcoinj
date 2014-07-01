@@ -1,5 +1,6 @@
 /*
  * Copyright 2013 Google Inc.
+ * Copyright 2014 Andreas Schildbach
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +19,6 @@ package com.google.dogecoin.params;
 
 import com.google.dogecoin.core.NetworkParameters;
 import com.google.dogecoin.core.Utils;
-import org.spongycastle.util.encoders.Hex;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -36,7 +36,7 @@ public class TestNet3Params extends NetworkParameters {
         newInterval = INTERVAL_NEW;
         targetTimespan = TARGET_TIMESPAN;
         newTargetTimespan = TARGET_TIMESPAN_NEW;
-        proofOfWorkLimit = Utils.decodeCompactBits(0x1e0ffff0L);
+        maxTarget = Utils.decodeCompactBits(0x1e0ffff0L);
         port = 44556;
         addressHeader = 113;
         p2shHeader = 196;
@@ -49,7 +49,7 @@ public class TestNet3Params extends NetworkParameters {
         subsidyDecreaseBlockCount = 100000;
         String genesisHash = genesisBlock.getHashAsString();
         checkState(genesisHash.equals("bb0a78264637406b6360aad926284d544d7049f45189db5664f3c4d07350559e"));
-        alertSigningKey = Hex.decode("042756726da3c7ef515d89212ee1705023d14be389e25fe15611585661b9a20021908b2b80a3c7200a0139dd2b26946606aab0eef9aa7689a6dc2c7eee237fa834");
+        alertSigningKey = Utils.HEX.decode("042756726da3c7ef515d89212ee1705023d14be389e25fe15611585661b9a20021908b2b80a3c7200a0139dd2b26946606aab0eef9aa7689a6dc2c7eee237fa834");
 
         diffChangeTarget = 50;
 
@@ -66,6 +66,7 @@ public class TestNet3Params extends NetworkParameters {
         return instance;
     }
 
+    @Override
     public String getPaymentProtocolId() {
         return PAYMENT_PROTOCOL_ID_TESTNET;
     }

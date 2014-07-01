@@ -19,6 +19,9 @@ package com.google.dogecoin.core;
 
 import com.google.dogecoin.params.UnitTestParams;
 import com.google.dogecoin.store.MemoryBlockStore;
+import com.google.dogecoin.testing.FakeTxBuilder;
+import com.google.dogecoin.testing.InboundMessageQueuer;
+import com.google.dogecoin.testing.TestWithPeerGroup;
 import com.google.dogecoin.utils.TestUtils;
 import com.google.dogecoin.utils.Threading;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,9 +35,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Random;
 
+import static com.google.dogecoin.core.Coin.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
 
 @RunWith(value = Parameterized.class)
 public class TransactionBroadcastTest extends TestWithPeerGroup {
@@ -54,8 +57,7 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
     @Before
     public void setUp() throws Exception {
         Utils.setMockClock(); // Use mock clock
-        super.setUp(new MemoryBlockStore(UnitTestParams.get()));
-        peerGroup.addWallet(wallet);
+        super.setUp();
         // Fix the random permutation that TransactionBroadcast uses to shuffle the peers.
         TransactionBroadcast.random = new Random(0);
         peerGroup.setMinBroadcastConnections(2);
@@ -63,11 +65,10 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
         peerGroup.awaitRunning();
     }
 
+    @Override
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         super.tearDown();
-        peerGroup.stopAsync();
-        peerGroup.awaitTerminated();
     }
 
     @Test
@@ -106,16 +107,21 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
         connectPeer(2);
 
         // Send ourselves a bit of money.
-        Block b1 = TestUtils.makeSolvedTestBlock(blockStore, address);
+        Block b1 = FakeTxBuilder.makeSolvedTestBlock(blockStore, address);
         inbound(p1, b1);
         assertNull(outbound(p1));
-        assertEquals(Utils.toNanoCoins(50, 0), wallet.getBalance());
+        assertEquals(FIFTY_COINS, wallet.getBalance());
 
         // Now create a spend, and expect the announcement on p1.
         Address dest = new ECKey().toAddress(params);
-        Wallet.SendResult sendResult = wallet.sendCoins(peerGroup, dest, Utils.toNanoCoins(1, 0));
+        Wallet.SendResult sendResult = wallet.sendCoins(peerGroup, dest, COIN);
         assertFalse(sendResult.broadcastComplete.isDone());
-        Transaction t1 = (Transaction) outbound(p1);
+        Transaction t1;
+        {
+            Message m;
+            while (!((m = outbound(p1)) instanceof Transaction));
+            t1 = (Transaction) m;
+        }
         assertFalse(sendResult.broadcastComplete.isDone());
 
         // p1 eats it :( A bit later the PeerGroup is taken down.
@@ -140,11 +146,11 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
         InboundMessageQueuer p2 = connectPeer(2);
 
         // Send ourselves a bit of money.
-        Block b1 = TestUtils.makeSolvedTestBlock(blockStore, address);
+        Block b1 = FakeTxBuilder.makeSolvedTestBlock(blockStore, address);
         inbound(p1, b1);
         pingAndWait(p1);
         assertNull(outbound(p1));
-        assertEquals(Utils.toNanoCoins(50, 0), wallet.getBalance());
+        assertEquals(FIFTY_COINS, wallet.getBalance());
 
         // Check that the wallet informs us of changes in confidence as the transaction ripples across the network.
         final Transaction[] transactions = new Transaction[1];
@@ -157,17 +163,25 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
 
         // Now create a spend, and expect the announcement on p1.
         Address dest = new ECKey().toAddress(params);
-        Wallet.SendResult sendResult = wallet.sendCoins(peerGroup, dest, Utils.toNanoCoins(1, 0));
+        Wallet.SendResult sendResult = wallet.sendCoins(peerGroup, dest, COIN);
         assertNotNull(sendResult.tx);
         Threading.waitForUserCode();
         assertFalse(sendResult.broadcastComplete.isDone());
         assertEquals(transactions[0], sendResult.tx);
         assertEquals(0, transactions[0].getConfidence().numBroadcastPeers());
         transactions[0] = null;
-        Transaction t1 = (Transaction) outbound(p1);
+        Transaction t1;
+        {
+            peerGroup.waitForJobQueue();
+            Message m = outbound(p1);
+            // Hack: bloom filters are recalculated asynchronously to sending transactions to avoid lock
+            // inversion, so we might or might not get the filter/mempool message first or second.
+            while (!(m instanceof Transaction)) m = outbound(p1);
+            t1 = (Transaction) m;
+        }
         assertNotNull(t1);
         // 49 BTC in change.
-        assertEquals(Utils.toNanoCoins(49, 0), t1.getValueSentToMe(wallet));
+        assertEquals(valueOf(49, 0), t1.getValueSentToMe(wallet));
         // The future won't complete until it's heard back from the network on p2.
         InventoryMessage inv = new InventoryMessage(params);
         inv.addTransaction(t1);
@@ -178,20 +192,20 @@ public class TransactionBroadcastTest extends TestWithPeerGroup {
         assertEquals(transactions[0], sendResult.tx);
         assertEquals(1, transactions[0].getConfidence().numBroadcastPeers());
         // Confirm it.
-        Block b2 = TestUtils.createFakeBlock(blockStore, t1).block;
+        Block b2 = FakeTxBuilder.createFakeBlock(blockStore, t1).block;
         inbound(p1, b2);
         pingAndWait(p1);
         assertNull(outbound(p1));
 
         // Do the same thing with an offline transaction.
         peerGroup.removeWallet(wallet);
-        Wallet.SendRequest req = Wallet.SendRequest.to(dest, Utils.toNanoCoins(2, 0));
+        Wallet.SendRequest req = Wallet.SendRequest.to(dest, valueOf(2, 0));
         req.ensureMinRequiredFee = false;
         Transaction t3 = checkNotNull(wallet.sendCoinsOffline(req));
         assertNull(outbound(p1));  // Nothing sent.
         // Add the wallet to the peer group (simulate initialization). Transactions should be announced.
         peerGroup.addWallet(wallet);
-        // Transaction announced to the first peer.
+        // Transaction announced to the first peer. No extra Bloom filter because no change address was needed.
         assertEquals(t3.getHash(), ((Transaction) outbound(p1)).getHash());
     }
 }

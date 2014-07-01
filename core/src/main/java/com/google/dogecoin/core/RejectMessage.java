@@ -68,13 +68,12 @@ public class RejectMessage extends Message {
     private RejectCode code;
     private Sha256Hash messageHash;
 
-    public RejectMessage(NetworkParameters params, byte[] bytes) throws ProtocolException {
-        super(params, bytes, 0);
+    public RejectMessage(NetworkParameters params, byte[] payload) throws ProtocolException {
+        super(params, payload, 0);
     }
 
-    public RejectMessage(NetworkParameters params, byte[] msg, boolean parseLazy, boolean parseRetain, int length)
-            throws ProtocolException {
-        super(params, msg, 0, parseLazy, parseRetain, length);
+    public RejectMessage(NetworkParameters params, byte[] payload, boolean parseLazy, boolean parseRetain, int length) throws ProtocolException {
+        super(params, payload, 0, parseLazy, parseRetain, length);
     }
 
     @Override
@@ -151,11 +150,13 @@ public class RejectMessage extends Message {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof RejectMessage &&
-                ((RejectMessage) o).message.equals(message) &&
-                ((RejectMessage) o).code.equals(code) &&
-                ((RejectMessage) o).reason.equals(reason) &&
-                ((RejectMessage) o).messageHash.equals(messageHash);
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RejectMessage other = (RejectMessage) o;
+        return message.equals(other.message) &&
+               code.equals(other.code) &&
+               reason.equals(other.reason) &&
+               messageHash.equals(other.messageHash);
     }
 
     @Override

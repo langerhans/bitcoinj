@@ -17,6 +17,7 @@
 package com.google.dogecoin.core;
 
 import com.google.dogecoin.params.UnitTestParams;
+import com.google.dogecoin.testing.FakeTxBuilder;
 import com.google.dogecoin.utils.BriefLogFormatter;
 import com.google.dogecoin.utils.TestUtils;
 import org.junit.Before;
@@ -24,6 +25,7 @@ import org.junit.Test;
 
 import java.net.InetAddress;
 
+import static com.google.dogecoin.core.Coin.COIN;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -35,7 +37,7 @@ public class MemoryPoolTest {
     @Before
     public void setup() throws Exception {
         BriefLogFormatter.init();
-        tx1 = TestUtils.createFakeTx(params, Utils.toNanoCoins(1, 0), new ECKey().toAddress(params));
+        tx1 = FakeTxBuilder.createFakeTx(params, COIN, new ECKey().toAddress(params));
         tx2 = new Transaction(params, tx1.bitcoinSerialize());
 
         address1 = new PeerAddress(InetAddress.getByAddress(new byte[] { 127, 0, 0, 1 }));

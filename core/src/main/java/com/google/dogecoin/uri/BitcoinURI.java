@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 the original author or authors.
+ * Copyright 2012, 2014 the original author or authors.
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,18 +20,20 @@ package com.google.dogecoin.uri;
 
 import com.google.dogecoin.core.Address;
 import com.google.dogecoin.core.AddressFormatException;
+import com.google.dogecoin.core.Coin;
 import com.google.dogecoin.core.NetworkParameters;
 import com.google.dogecoin.core.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -192,22 +194,25 @@ public class BitcoinURI {
     private void parseParameters(@Nullable NetworkParameters params, String addressToken, String[] nameValuePairTokens) throws BitcoinURIParseException {
         // Attempt to decode the rest of the tokens into a parameter map.
         for (String nameValuePairToken : nameValuePairTokens) {
-            String[] tokens = nameValuePairToken.split("=");
-            if (tokens.length != 2 || "".equals(tokens[0])) {
-                throw new BitcoinURIParseException("Malformed Bitcoin URI - cannot parse name value pair '" +
+            final int sepIndex = nameValuePairToken.indexOf('=');
+            if (sepIndex == -1)
+                throw new BitcoinURIParseException("Malformed Dogecoin URI - no separator in '" +
                         nameValuePairToken + "'");
-            }
-
-            String nameToken = tokens[0].toLowerCase();
-            String valueToken = tokens[1];
+            if (sepIndex == 0)
+                throw new BitcoinURIParseException("Malformed Dogecoin URI - empty name '" +
+                        nameValuePairToken + "'");
+            final String nameToken = nameValuePairToken.substring(0, sepIndex).toLowerCase(Locale.ENGLISH);
+            final String valueToken = nameValuePairToken.substring(sepIndex + 1);
 
             // Parse the amount.
             if (FIELD_AMOUNT.equals(nameToken)) {
                 // Decode the amount (contains an optional decimal component to 8dp).
                 try {
-                    BigInteger amount = Utils.toNanoCoins(valueToken);
+                    Coin amount = Coin.parseCoin(valueToken);
+                    if (amount.signum() < 0)
+                        throw new ArithmeticException("Negative coins specified");
                     putWithValidation(FIELD_AMOUNT, amount);
-                } catch (NumberFormatException e) {
+                } catch (IllegalArgumentException e) {
                     throw new OptionalFieldValidationException(String.format("'%s' is not a valid amount", valueToken), e);
                 } catch (ArithmeticException e) {
                     throw new OptionalFieldValidationException(String.format("'%s' has too many decimal places", valueToken), e);
@@ -219,7 +224,8 @@ public class BitcoinURI {
                 } else {
                     // Known fields and unknown parameters that are optional.
                     try {
-                        putWithValidation(nameToken, URLDecoder.decode(valueToken, "UTF-8"));
+                        if (valueToken.length() > 0)
+                            putWithValidation(nameToken, URLDecoder.decode(valueToken, "UTF-8"));
                     } catch (UnsupportedEncodingException e) {
                         // Unreachable.
                         throw new RuntimeException(e);
@@ -260,8 +266,8 @@ public class BitcoinURI {
      * @return The amount name encoded using a pure integer value based at
      *         10,000,000 units is 1 BTC. May be null if no amount is specified
      */
-    public BigInteger getAmount() {
-        return (BigInteger) parameterMap.get(FIELD_AMOUNT);
+    public Coin getAmount() {
+        return (Coin) parameterMap.get(FIELD_AMOUNT);
     }
 
     /**
@@ -310,7 +316,7 @@ public class BitcoinURI {
         return builder.toString();
     }
 
-    public static String convertToBitcoinURI(Address address, BigInteger amount, String label, String message) {
+    public static String convertToBitcoinURI(Address address, Coin amount, String label, String message) {
         return convertToBitcoinURI(address.toString(), amount, label, message);
     }
 
@@ -318,16 +324,16 @@ public class BitcoinURI {
      * Simple Bitcoin URI builder using known good fields.
      * 
      * @param address The Bitcoin address
-     * @param amount The amount in nanocoins (decimal)
+     * @param amount The amount
      * @param label A label
      * @param message A message
      * @return A String containing the Bitcoin URI
      */
-    public static String convertToBitcoinURI(String address, @Nullable BigInteger amount, @Nullable String label,
+    public static String convertToBitcoinURI(String address, @Nullable Coin amount, @Nullable String label,
                                              @Nullable String message) {
         checkNotNull(address);
         if (amount != null && amount.signum() < 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new IllegalArgumentException("Coin must be positive");
         }
         
         StringBuilder builder = new StringBuilder();
@@ -337,7 +343,7 @@ public class BitcoinURI {
         
         if (amount != null) {
             builder.append(QUESTION_MARK_SEPARATOR).append(FIELD_AMOUNT).append("=");
-            builder.append(Utils.bitcoinValueToPlainString(amount));
+            builder.append(amount.toPlainString());
             questionMarkHasBeenOutput = true;
         }
         

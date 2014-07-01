@@ -31,7 +31,7 @@ public class MainNetParams extends NetworkParameters {
         newInterval = INTERVAL_NEW;
         targetTimespan = TARGET_TIMESPAN;
         newTargetTimespan = TARGET_TIMESPAN_NEW;
-        proofOfWorkLimit = Utils.decodeCompactBits(0x1e0fffffL);
+        maxTarget = Utils.decodeCompactBits(0x1e0fffffL);
         dumpedPrivateKeyHeader = 158; //This is always addressHeader + 128
         addressHeader = 30;
         p2shHeader = 22;
@@ -78,6 +78,7 @@ public class MainNetParams extends NetworkParameters {
         return instance;
     }
 
+    @Override
     public String getPaymentProtocolId() {
         return PAYMENT_PROTOCOL_ID_MAINNET;
     }

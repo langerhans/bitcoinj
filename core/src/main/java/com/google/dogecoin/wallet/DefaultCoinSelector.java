@@ -1,5 +1,6 @@
 package com.google.dogecoin.wallet;
 
+import com.google.dogecoin.core.Coin;
 import com.google.dogecoin.core.NetworkParameters;
 import com.google.dogecoin.core.Transaction;
 import com.google.dogecoin.core.TransactionConfidence;
@@ -16,7 +17,8 @@ import java.util.*;
  * "spending" more priority than would be required to get the transaction we are creating confirmed.
  */
 public class DefaultCoinSelector implements CoinSelector {
-    public CoinSelection select(BigInteger biTarget, LinkedList<TransactionOutput> candidates) {
+    @Override
+    public CoinSelection select(Coin biTarget, LinkedList<TransactionOutput> candidates) {
         HashSet<TransactionOutput> selected = new HashSet<TransactionOutput>();
         // Sort the inputs by age*value so we get the highest "coindays" spent.
         // TODO: Consider changing the wallets internal format to track just outputs and keep them ordered.
@@ -28,7 +30,7 @@ public class DefaultCoinSelector implements CoinSelector {
         }
         // Now iterate over the sorted outputs until we have got as close to the target as possible or a little
         // bit over (excessive value will be change).
-        BigInteger biTotal = BigInteger.ZERO;
+        Coin biTotal = Coin.ZERO;
         for (TransactionOutput output : sortedOutputs) {
             if (biTotal.compareTo(biTarget) >= 0) break;
             // Only pick chain-included transactions, or transactions that are ours and pending.
@@ -43,6 +45,7 @@ public class DefaultCoinSelector implements CoinSelector {
 
     @VisibleForTesting static void sortOutputs(ArrayList<TransactionOutput> outputs) {
         Collections.sort(outputs, new Comparator<TransactionOutput>() {
+            @Override
             public int compare(TransactionOutput a, TransactionOutput b) {
                 int depth1 = 0;
                 int depth2 = 0;
@@ -52,10 +55,10 @@ public class DefaultCoinSelector implements CoinSelector {
                     depth1 = conf1.getDepthInBlocks();
                 if (conf2.getConfidenceType() == TransactionConfidence.ConfidenceType.BUILDING)
                     depth2 = conf2.getDepthInBlocks();
-                BigInteger aValue = a.getValue();
-                BigInteger bValue = b.getValue();
-                BigInteger aCoinDepth = aValue.multiply(BigInteger.valueOf(depth1));
-                BigInteger bCoinDepth = bValue.multiply(BigInteger.valueOf(depth2));
+                Coin aValue = a.getValue();
+                Coin bValue = b.getValue();
+                BigInteger aCoinDepth = BigInteger.valueOf(aValue.value).multiply(BigInteger.valueOf(depth1));
+                BigInteger bCoinDepth = BigInteger.valueOf(bValue.value).multiply(BigInteger.valueOf(depth2));
                 int c1 = bCoinDepth.compareTo(aCoinDepth);
                 if (c1 != 0) return c1;
                 // The "coin*days" destroyed are equal, sort by value alone to get the lowest transaction size.

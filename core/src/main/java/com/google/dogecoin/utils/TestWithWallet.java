@@ -48,7 +48,7 @@ public class TestWithWallet {
 
     public void setUp() throws Exception {
         BriefLogFormatter.init();
-        Wallet.SendRequest.DEFAULT_FEE_PER_KB = BigInteger.ZERO;
+        Wallet.SendRequest.DEFAULT_FEE_PER_KB = Coin.ZERO;
         myKey = new ECKey();
         myAddress = myKey.toAddress(params);
         wallet = new Wallet(params);
@@ -83,17 +83,17 @@ public class TestWithWallet {
     }
 
     @Nullable
-    protected Transaction sendMoneyToWallet(Wallet wallet, BigInteger value, Address toAddress, AbstractBlockChain.NewBlockType type) throws IOException, VerificationException {
+    protected Transaction sendMoneyToWallet(Wallet wallet, Coin value, Address toAddress, AbstractBlockChain.NewBlockType type) throws IOException, VerificationException {
         return sendMoneyToWallet(wallet, createFakeTx(params, value, toAddress), type);
     }
 
     @Nullable
-    protected Transaction sendMoneyToWallet(Wallet wallet, BigInteger value, ECKey toPubKey, AbstractBlockChain.NewBlockType type) throws IOException, VerificationException {
+    protected Transaction sendMoneyToWallet(Wallet wallet, Coin value, ECKey toPubKey, AbstractBlockChain.NewBlockType type) throws IOException, VerificationException {
         return sendMoneyToWallet(wallet, createFakeTx(params, value, toPubKey), type);
     }
 
     @Nullable
-    protected Transaction sendMoneyToWallet(BigInteger value, AbstractBlockChain.NewBlockType type) throws IOException,  VerificationException {
+    protected Transaction sendMoneyToWallet(Coin value, AbstractBlockChain.NewBlockType type) throws IOException,  VerificationException {
         return sendMoneyToWallet(this.wallet, createFakeTx(params, value, myAddress), type);
     }
 }
