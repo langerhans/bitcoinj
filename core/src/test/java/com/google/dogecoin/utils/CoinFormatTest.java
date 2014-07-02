@@ -44,12 +44,12 @@ public class CoinFormatTest {
 
     @Test
     public void testGrouping() throws Exception {
-        assertEquals("0.1", format(Coin.parseCoin("0.1"), 0, 1, 2, 3));
-        assertEquals("0.010", format(Coin.parseCoin("0.01"), 0, 1, 2, 3));
-        assertEquals("0.001", format(Coin.parseCoin("0.001"), 0, 1, 2, 3));
-        assertEquals("0.000100", format(Coin.parseCoin("0.0001"), 0, 1, 2, 3));
-        assertEquals("0.000010", format(Coin.parseCoin("0.00001"), 0, 1, 2, 3));
-        assertEquals("0.000001", format(Coin.parseCoin("0.000001"), 0, 1, 2, 3));
+        assertEquals("0.1", format(Coin.parseCoin("10000000"), 0, 1, 2, 3));
+        assertEquals("0.010", format(Coin.parseCoin("1000000"), 0, 1, 2, 3));
+        assertEquals("0.001", format(Coin.parseCoin("100000"), 0, 1, 2, 3));
+        assertEquals("0.000100", format(Coin.parseCoin("10000"), 0, 1, 2, 3));
+        assertEquals("0.000010", format(Coin.parseCoin("1000"), 0, 1, 2, 3));
+        assertEquals("0.000001", format(Coin.parseCoin("100"), 0, 1, 2, 3));
     }
 
     @Test
