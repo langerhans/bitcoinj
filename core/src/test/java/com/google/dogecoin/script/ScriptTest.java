@@ -120,7 +120,7 @@ public class ScriptTest {
         Transaction transaction = new Transaction(params, bytes);
         TransactionOutput output = transaction.getOutput(1);
         Transaction spendTx = new Transaction(params);
-        Address address = new Address(params, "n3CFiCmBXVt5d3HXKQ15EFZyhPz4yj5F3H");
+        Address address = new Address(params, "nb4rkqRkYxQfiYHjah3mcBCcfkvFeccTva");
         Script outputScript = ScriptBuilder.createOutputScript(address);
         spendTx.addOutput(output.getValue(), outputScript);
         spendTx.addInput(output);
