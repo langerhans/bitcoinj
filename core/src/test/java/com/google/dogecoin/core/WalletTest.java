@@ -100,7 +100,12 @@ public class WalletTest extends TestWithWallet {
     @Test
     public void getSeedAsWords1() {
         // Can't verify much here as the wallet is random each time. We could fix the RNG for the unit tests and solve.
-        assertEquals(12, wallet.getKeyChainSeed().toMnemonicCode().size());
+        assertEquals(12, wallet.getKeyChainSeed().getMnemonicCode().size());
+    }
+
+    @Test
+    public void checkSeed() throws MnemonicException {
+        wallet.getKeyChainSeed().check();
     }
 
     @Test
@@ -536,18 +541,18 @@ public class WalletTest extends TestWithWallet {
         confTxns.clear();
         sendMoneyToWallet(send1, AbstractBlockChain.NewBlockType.BEST_CHAIN);
         Threading.waitForUserCode();
-        assertEquals(wallet.getBalance().toFriendlyString(), "0.90");
+        assertEquals(Coin.valueOf(0, 90), wallet.getBalance());
         assertEquals(null, txn[0]);
         assertEquals(2, confTxns.size());
         assertEquals(txn[1].getHash(), send1.getHash());
-        assertEquals(bigints[2].toFriendlyString(), "1.00");
-        assertEquals(bigints[3].toFriendlyString(), "0.90");
+        assertEquals(Coin.COIN, bigints[2]);
+        assertEquals(Coin.valueOf(0, 90), bigints[3]);
         // And we do it again after the catchup.
         Transaction send2 = wallet.createSend(new ECKey().toAddress(params), valueOf(0, 10));
         // What we'd really like to do is prove the official client would accept it .... no such luck unfortunately.
         wallet.commitTx(send2);
         sendMoneyToWallet(send2, AbstractBlockChain.NewBlockType.BEST_CHAIN);
-        assertEquals(wallet.getBalance().toFriendlyString(), "0.80");
+        assertEquals(Coin.valueOf(0, 80), wallet.getBalance());
         Threading.waitForUserCode();
         BlockPair b4 = createFakeBlock(blockStore);
         confTxns.clear();

@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-package com.google.dogecoin.payments;
+package com.google.dogecoin.protocols.payments;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
-import java.util.LinkedList;
-import java.util.List;
-
-import com.google.dogecoin.protocols.payments.PaymentProtocol;
-import com.google.dogecoin.protocols.payments.PaymentSession;
+import com.google.dogecoin.core.*;
+import com.google.dogecoin.crypto.X509Utils;
+import com.google.dogecoin.params.TestNet3Params;
+import com.google.dogecoin.params.UnitTestParams;
+import com.google.dogecoin.protocols.payments.PaymentProtocol.Output;
+import com.google.dogecoin.protocols.payments.PaymentProtocol.PkiVerificationData;
+import com.google.dogecoin.protocols.payments.PaymentProtocolException.PkiVerificationException;
+import com.google.dogecoin.script.ScriptBuilder;
+import com.google.dogecoin.testing.FakeTxBuilder;
 import org.bitcoin.protocols.payments.Protos;
 import org.bitcoin.protocols.payments.Protos.Payment;
 import org.bitcoin.protocols.payments.Protos.PaymentACK;
@@ -35,18 +32,13 @@ import org.bitcoin.protocols.payments.Protos.PaymentRequest;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.dogecoin.core.Address;
-import com.google.dogecoin.core.Coin;
-import com.google.dogecoin.core.ECKey;
-import com.google.dogecoin.core.NetworkParameters;
-import com.google.dogecoin.core.Transaction;
-import com.google.dogecoin.crypto.X509Utils;
-import com.google.dogecoin.params.UnitTestParams;
-import com.google.dogecoin.protocols.payments.PaymentProtocol.Output;
-import com.google.dogecoin.protocols.payments.PaymentProtocol.PkiVerificationData;
-import com.google.dogecoin.protocols.payments.PaymentRequestException.PkiVerificationException;
-import com.google.dogecoin.script.ScriptBuilder;
-import com.google.dogecoin.testing.FakeTxBuilder;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+import java.util.LinkedList;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class PaymentProtocolTest {
 
@@ -107,9 +99,10 @@ public class PaymentProtocolTest {
         return paymentRequest.build();
     }
 
+    @Test
     public void testPaymentRequest() throws Exception {
         // Create
-        PaymentRequest paymentRequest = PaymentProtocol.createPaymentRequest(NETWORK_PARAMS, AMOUNT, TO_ADDRESS, MEMO,
+        PaymentRequest paymentRequest = PaymentProtocol.createPaymentRequest(TestNet3Params.get(), AMOUNT, TO_ADDRESS, MEMO,
                 PAYMENT_URL, MERCHANT_DATA).build();
         byte[] paymentRequestBytes = paymentRequest.toByteArray();
 
@@ -119,10 +112,10 @@ public class PaymentProtocolTest {
         final List<Output> parsedOutputs = parsedPaymentRequest.getOutputs();
         assertEquals(1, parsedOutputs.size());
         assertEquals(AMOUNT, parsedOutputs.get(0).amount);
-        assertEquals(ScriptBuilder.createOutputScript(TO_ADDRESS).getProgram(), parsedOutputs.get(0).scriptData);
+        assertArrayEquals(ScriptBuilder.createOutputScript(TO_ADDRESS).getProgram(), parsedOutputs.get(0).scriptData);
         assertEquals(MEMO, parsedPaymentRequest.getMemo());
         assertEquals(PAYMENT_URL, parsedPaymentRequest.getPaymentUrl());
-        assertEquals(MERCHANT_DATA, parsedPaymentRequest.getMerchantData());
+        assertArrayEquals(MERCHANT_DATA, parsedPaymentRequest.getMerchantData());
     }
 
     @Test

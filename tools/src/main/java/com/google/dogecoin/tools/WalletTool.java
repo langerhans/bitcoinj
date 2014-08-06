@@ -617,7 +617,7 @@ public class WalletTool {
     private static void send(PaymentSession session) {
         try {
             System.out.println("Payment Request");
-            System.out.println("Amount: " + session.getValue().doubleValue() / 100000 + "mBTC");
+            System.out.println("Coin: " + session.getValue().toFriendlyString());
             System.out.println("Date: " + session.getDate());
             System.out.println("Memo: " + session.getMemo());
             if (session.pkiVerificationData != null) {
@@ -854,8 +854,10 @@ public class WalletTool {
             if (seedStr.contains(" ")) {
                 // Parse as mnemonic code.
                 final List<String> split = ImmutableList.copyOf(Splitter.on(" ").omitEmptyStrings().split(seedStr));
+                String passphrase = ""; // TODO allow user to specify a passphrase
+                seed = new DeterministicSeed(split, passphrase, creationTimeSecs);
                 try {
-                    seed = new DeterministicSeed(split, creationTimeSecs);
+                    seed.check();
                 } catch (MnemonicException.MnemonicLengthException e) {
                     System.err.println("The seed did not have 12 words in, perhaps you need quotes around it?");
                     return;
@@ -865,8 +867,14 @@ public class WalletTool {
                 } catch (MnemonicException.MnemonicChecksumException e) {
                     System.err.println("The seed did not pass checksumming, perhaps one of the words is wrong?");
                     return;
+                } catch (MnemonicException e) {
+                    // not reached - all subclasses handled above
+                    throw new RuntimeException(e);
                 }
             } else {
+                System.err.println("Seed string must be mnemonic words");
+                return;
+                /*
                 // Parse as hex or base58
                 byte[] bits = Utils.parseAsHexOrBase58(seedStr);
                 if (bits.length != 16) {
@@ -874,6 +882,7 @@ public class WalletTool {
                     return;
                 }
                 seed = new DeterministicSeed(bits, creationTimeSecs);
+                */
             }
             wallet = Wallet.fromSeed(params, seed);
         } else if (options.has(watchFlag)) {

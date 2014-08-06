@@ -492,7 +492,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
 
     /** Returns the address used for change outputs. Note: this will probably go away in future. */
     public Address getChangeAddress() {
-        return keychain.currentAddress(KeyChain.KeyPurpose.CHANGE);
+        return currentAddress(KeyChain.KeyPurpose.CHANGE);
     }
 
     /**
@@ -1211,8 +1211,8 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
             Coin valueSentToMe = tx.getValueSentToMe(this);
             Coin valueSentFromMe = tx.getValueSentFromMe(this);
             if (log.isInfoEnabled()) {
-                log.info(String.format("Received a pending transaction %s that spends %s DOGE from our own wallet," +
-                        " and sends us %s DOGE", tx.getHashAsString(), valueSentFromMe.toFriendlyString(),
+                log.info(String.format("Received a pending transaction %s that spends %s BTC from our own wallet," +
+                        " and sends us %s", tx.getHashAsString(), valueSentFromMe.toFriendlyString(),
                         valueSentToMe.toFriendlyString()));
             }
             if (tx.getConfidence().getSource().equals(TransactionConfidence.Source.UNKNOWN)) {
@@ -1391,7 +1391,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
         Coin valueSentToMe = tx.getValueSentToMe(this);
         Coin valueDifference = valueSentToMe.subtract(valueSentFromMe);
 
-        log.info("Received tx{} for {} DOGE: {} [{}] in block {}", sideChain ? " on a side chain" : "",
+        log.info("Received tx{} for {}: {} [{}] in block {}", sideChain ? " on a side chain" : "",
                 valueDifference.toFriendlyString(), tx.getHashAsString(), relativityOffset,
                 block != null ? block.getHeader().getHash() : "(unit test)");
 
@@ -2497,7 +2497,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
             }
             Coin totalOutput = value;
 
-            log.info("Completing send tx with {} outputs totalling {} BTC (not including fees)",
+            log.info("Completing send tx with {} outputs totalling {} (not including fees)",
                     req.tx.getOutputs().size(), value.toFriendlyString());
 
             // If any inputs have already been added, we don't need to get their value from wallet
@@ -2548,7 +2548,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
                 bestCoinSelection = selector.select(NetworkParameters.MAX_MONEY, candidates);
                 candidates = null;  // Selector took ownership and might have changed candidates. Don't access again.
                 req.tx.getOutput(0).setValue(bestCoinSelection.valueGathered);
-                log.info("  emptying {} BTC", bestCoinSelection.valueGathered.toFriendlyString());
+                log.info("  emptying {}", bestCoinSelection.valueGathered.toFriendlyString());
                 totalOutput = bestCoinSelection.valueGathered;
                 if (totalOutput.compareTo(Coin.valueOf(2)) < 0)
                     throw new InsufficientMoneyException(totalOutput.subtract(Coin.valueOf(2)), "Can't spend this due to fee.");
@@ -2575,7 +2575,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
             if (bestChangeOutput != null) {
                 req.tx.addOutput(bestChangeOutput);
                 totalOutput = totalOutput.add(bestChangeOutput.getValue());
-                log.info("  with {} DOGE change", bestChangeOutput.getValue().toFriendlyString());
+                log.info("  with {} BTC change", bestChangeOutput.getValue().toFriendlyString());
             }
 
             // Now shuffle the outputs to obfuscate which is the change.
@@ -2855,7 +2855,7 @@ public class Wallet extends BaseTaggableObject implements Serializable, BlockCha
                 }
                 if (dead.size() > 0) {
                     builder.append("\n>>> DEAD:\n");
-                    toStringHelper(builder, dead, chain, Transaction.SORT_TX_BY_HEIGHT);
+                    toStringHelper(builder, dead, chain, Transaction.SORT_TX_BY_UPDATE_TIME);
                 }
             }
             if (includeExtensions && extensions.size() > 0) {
