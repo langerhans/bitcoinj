@@ -112,11 +112,11 @@ public class ScriptTest {
     @Test
     public void testCreateMultiSigInputScript() throws AddressFormatException {
         // Setup transaction and signatures
-        ECKey key1 = new DumpedPrivateKey(params, "cVLwRLTvz3BxDAWkvS3yzT9pUcTCup7kQnfT2smRjvmmm1wAP6QT").getKey();
-        ECKey key2 = new DumpedPrivateKey(params, "cTine92s8GLpVqvebi8rYce3FrUYq78ZGQffBYCS1HmDPJdSTxUo").getKey();
-        ECKey key3 = new DumpedPrivateKey(params, "cVHwXSPRZmL9adctwBwmn4oTZdZMbaCsR5XF6VznqMgcvt1FDDxg").getKey();
+        ECKey key1 = new DumpedPrivateKey(params, "cmdUJTGUY6WtzEmCHfzF1SZckSUxX8arM2MnNhRGbdM4o3dng7ZY").getKey();
+        ECKey key2 = new DumpedPrivateKey(params, "cgKg6UUYv61oRYRfpbm3aWs3qdcxCKtm17sXVsHZUVX9HsAPpABW").getKey();
+        ECKey key3 = new DumpedPrivateKey(params, "chdWipeJuorYGk7XLzhRz4evw349K5Kp2yT2eRFAhih7yKJ2omNZ").getKey();
         Script multisigScript = ScriptBuilder.createMultiSigOutputScript(2, Arrays.asList(key1, key2, key3));
-        byte[] bytes = HEX.decode("01000000013df681ff83b43b6585fa32dd0e12b0b502e6481e04ee52ff0fdaf55a16a4ef61000000006b483045022100a84acca7906c13c5895a1314c165d33621cdcf8696145080895cbf301119b7cf0220730ff511106aa0e0a8570ff00ee57d7a6f24e30f592a10cae1deffac9e13b990012102b8d567bcd6328fd48a429f9cf4b315b859a58fd28c5088ef3cb1d98125fc4e8dffffffff02364f1c00000000001976a91439a02793b418de8ec748dd75382656453dc99bcb88ac40420f000000000017a9145780b80be32e117f675d6e0ada13ba799bf248e98700000000");
+        byte[] bytes = HEX.decode("0100000001479013be885784349f7dfd274e055b08c2505c8aa86002f9c45fef3fcda358b8000000006b483045022100838bff40b127343f6c2ae1b7029e1a2e7c6fec2c200680a249cde2e140e7b1f40220186477c5824c6743a30e12112a21872e067cbde76dc6670d10811c28b39a3d97012103f6dc13f9ee44285742acaff32f5bdb2880db56f1fd8afc7770708c98bb501056ffffffff0200e876481700000017a914f14ff874c820fe14e3a503d3ba676f6e2d20acea870077cc1c233501001976a9144ea517bedcc2c654c8b6f95a9c11a9c61709aaf788ac00000000");
         Transaction transaction = new Transaction(params, bytes);
         TransactionOutput output = transaction.getOutput(1);
         Transaction spendTx = new Transaction(params);
