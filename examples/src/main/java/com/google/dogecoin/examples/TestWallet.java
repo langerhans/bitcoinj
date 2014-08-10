@@ -1,13 +1,12 @@
-import java.io.File;
+package com.google.dogecoin.examples;
 
-import com.google.dogecoin.core.AbstractPeerEventListener;
-import com.google.dogecoin.core.Block;
-import com.google.dogecoin.core.ECKey;
-import com.google.dogecoin.core.Message;
-import com.google.dogecoin.core.NetworkParameters;
-import com.google.dogecoin.core.Peer;
+import java.io.File;
+import java.net.InetAddress;
+
+import com.google.dogecoin.core.*;
 import com.google.dogecoin.kits.WalletAppKit;
 import com.google.dogecoin.params.MainNetParams;
+import com.google.dogecoin.params.TestNet3Params;
 import com.google.dogecoin.utils.Threading;
 
 
@@ -20,7 +19,7 @@ public class TestWallet {
 	}
 
 	public void run() throws Exception {
-		NetworkParameters params = MainNetParams.get();
+		NetworkParameters params = TestNet3Params.get();
 		
 		appKit = new WalletAppKit(params, new File("."), "dogecoins") {
 			@Override
@@ -31,7 +30,7 @@ public class TestWallet {
 				}
 				
 				peerGroup().setConnectTimeoutMillis(1000);
-				
+
 				System.out.println(appKit.wallet());
 				
 				peerGroup().addEventListener(new AbstractPeerEventListener() {
@@ -57,7 +56,17 @@ public class TestWallet {
 				},Threading.SAME_THREAD);
 			}
 		};
-		
+
+        PeerAddress[] peers = new PeerAddress[7];
+        peers[0] = new PeerAddress(InetAddress.getByName("54.237.28.96"), params.getPort());
+        peers[1] = new PeerAddress(InetAddress.getByName("107.170.14.48"), params.getPort());
+        peers[2] = new PeerAddress(InetAddress.getByName("dogetest.jrn.me.uk"), params.getPort());
+        peers[3] = new PeerAddress(InetAddress.getByName("54.74.34.153"), params.getPort());
+        peers[4] = new PeerAddress(InetAddress.getByName("178.201.149.20"), params.getPort());
+        peers[5] = new PeerAddress(InetAddress.getByName("54.217.8.3"), params.getPort());
+        peers[6] = new PeerAddress(InetAddress.getByName("192.168.178.89"), params.getPort());
+        appKit.setPeerNodes(peers);
+
 		appKit.startAndWait();
 	}
 

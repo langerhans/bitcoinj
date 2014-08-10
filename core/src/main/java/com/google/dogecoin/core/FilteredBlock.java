@@ -16,6 +16,8 @@
 
 package com.google.dogecoin.core;
 
+import org.spongycastle.util.encoders.Hex;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
@@ -53,8 +55,24 @@ public class FilteredBlock extends Message {
     void parse() throws ProtocolException {
         byte[] headerBytes = new byte[Block.HEADER_SIZE];
         System.arraycopy(bytes, 0, headerBytes, 0, Block.HEADER_SIZE);
+        String debug = new String(Hex.encode(bytes));
+        String debug2 = new String(Hex.encode(headerBytes));
         header = new Block(params, headerBytes);
-        
+
+        boolean isAuxBlock = header.getVersion() == Block.BLOCK_VERSION_AUXPOW;
+        byte[] maybeAuxHeader = new byte[bytes.length - Block.HEADER_SIZE];
+        System.arraycopy(bytes, Block.HEADER_SIZE, maybeAuxHeader, 0, bytes.length - Block.HEADER_SIZE);
+        if (isAuxBlock && header.getNonce() != 0) {
+            // An aux block with nonce != 0 is not actually an aux block
+            if (bytes[Block.HEADER_SIZE + 1] >= 0x01 && maybeAuxHeader.length < 60) {
+                // if the tx count is 1+ but we don't have enough bytes for even one,
+                // assume it's the aux header and get rid off it.
+                System.arraycopy(bytes, 0, bytes, 0, bytes.length - Block.HEADER_SIZE + 1);
+            }
+        }
+
+        String debug3 = new String(Hex.encode(maybeAuxHeader));
+        System.out.println(debug);
         merkleTree = new PartialMerkleTree(params, bytes, Block.HEADER_SIZE);
         
         length = Block.HEADER_SIZE + merkleTree.getMessageSize();
