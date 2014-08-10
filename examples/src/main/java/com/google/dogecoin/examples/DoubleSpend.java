@@ -1,10 +1,10 @@
-package com.google.bitcoin.examples;
+package com.google.dogecoin.examples;
 
-import com.google.bitcoin.core.*;
-import com.google.bitcoin.kits.WalletAppKit;
-import com.google.bitcoin.params.RegTestParams;
-import com.google.bitcoin.utils.BriefLogFormatter;
-import com.google.bitcoin.utils.Threading;
+import com.google.dogecoin.core.*;
+import com.google.dogecoin.kits.WalletAppKit;
+import com.google.dogecoin.params.RegTestParams;
+import com.google.dogecoin.utils.BriefLogFormatter;
+import com.google.dogecoin.utils.Threading;
 
 import java.io.File;
 import java.math.BigInteger;
