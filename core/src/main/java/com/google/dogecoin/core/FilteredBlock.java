@@ -53,28 +53,28 @@ public class FilteredBlock extends Message {
 
     @Override
     void parse() throws ProtocolException {
+        long blockVersion = Utils.readUint32(bytes, cursor);
+
         byte[] headerBytes = new byte[Block.HEADER_SIZE];
         System.arraycopy(bytes, 0, headerBytes, 0, Block.HEADER_SIZE);
-        String debug = new String(Hex.encode(bytes));
-        String debug2 = new String(Hex.encode(headerBytes));
-        header = new Block(params, headerBytes);
 
-        boolean isAuxBlock = header.getVersion() == Block.BLOCK_VERSION_AUXPOW;
-        byte[] maybeAuxHeader = new byte[bytes.length - Block.HEADER_SIZE];
-        System.arraycopy(bytes, Block.HEADER_SIZE, maybeAuxHeader, 0, bytes.length - Block.HEADER_SIZE);
-        if (isAuxBlock && header.getNonce() != 0) {
-            // An aux block with nonce != 0 is not actually an aux block
-            if (bytes[Block.HEADER_SIZE + 1] >= 0x01 && maybeAuxHeader.length < 60) {
-                // if the tx count is 1+ but we don't have enough bytes for even one,
-                // assume it's the aux header and get rid off it.
-                System.arraycopy(bytes, 0, bytes, 0, bytes.length - Block.HEADER_SIZE + 1);
-            }
+
+        if (blockVersion == Block.BLOCK_VERSION_AUXPOW_AUXBLOCK) {
+            AuxPoWMessage auxPoWMessage = new AuxPoWMessage(bytes, cursor + Block.HEADER_SIZE);
+            auxPoWMessage.parse();
+            this.cursor = auxPoWMessage.cursor;
+
+            header = new Block(params, headerBytes, new Block(params, auxPoWMessage.constructParentHeader()));
+
+            byte[] filteredBlock = new byte[Block.HEADER_SIZE + bytes.length - cursor];
+            System.arraycopy(headerBytes, 0, filteredBlock, 0, headerBytes.length-1);
+            System.arraycopy(bytes, cursor, filteredBlock, Block.HEADER_SIZE, bytes.length-cursor);
+            merkleTree = new PartialMerkleTree(params, filteredBlock, Block.HEADER_SIZE);
+        } else {
+            header = new Block(params, headerBytes);
+            merkleTree = new PartialMerkleTree(params, bytes, Block.HEADER_SIZE);
         }
 
-        String debug3 = new String(Hex.encode(maybeAuxHeader));
-        System.out.println(debug);
-        merkleTree = new PartialMerkleTree(params, bytes, Block.HEADER_SIZE);
-        
         length = Block.HEADER_SIZE + merkleTree.getMessageSize();
     }
     
