@@ -702,13 +702,7 @@ public class Block extends Message {
 
         BigInteger h;
         if (this.version == BLOCK_VERSION_AUXPOW_AUXBLOCK) {
-            try {
-                h = this.parentBlock.getScryptHash().toBigInteger();
-            } catch (NullPointerException e) {
-                log.error("Caught NPE: Hash = " + getHashAsString() + " scryptHash = " + getScryptHashAsString());
-                return true;
-            }
-
+            h = this.parentBlock.getScryptHash().toBigInteger();
         } else {
             h  = getScryptHash().toBigInteger();
         }
