@@ -255,7 +255,6 @@ public class Block extends Message {
     }
 
     void parse() throws ProtocolException {
-        log.debug("BLOCK DATA: " + Utils.bytesToHexString(bytes));
         parseHeader();
         if (version == BLOCK_VERSION_AUXPOW_AUXBLOCK && bytes.length >= 160) { // We have at least 2 headers in an Aux block. Workaround for StoredBlocks
             parseAuxData();
