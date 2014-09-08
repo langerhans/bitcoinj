@@ -57,10 +57,10 @@ public abstract class NetworkParameters implements Serializable {
     /** Unit test network. */
     public static final String ID_UNITTESTNET = "com.google.dogecoin.unittest";
 
-    /** The string used by the payment protocol to represent the main net. */
-    public static final String PAYMENT_PROTOCOL_ID_MAINNET = "main";
-    /** The string used by the payment protocol to represent the test net. */
-    public static final String PAYMENT_PROTOCOL_ID_TESTNET = "test";
+    /** The genesis block hash for the main net. */
+    public static final String GENESIS_HASH_MAINNET = "1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691";
+    /** The genesis block hash for the test net. */
+    public static final String GENESIS_HASH_TESTNET = "bb0a78264637406b6360aad926284d544d7049f45189db5664f3c4d07350559e";
 
     // TODO: Seed nodes should be here as well.
 
@@ -221,10 +221,10 @@ public abstract class NetworkParameters implements Serializable {
 
     /** Returns the network parameters for the given string paymentProtocolID or NULL if not recognized. */
     @Nullable
-    public static NetworkParameters fromPmtProtocolID(String pmtProtocolId) {
-        if (pmtProtocolId.equals(PAYMENT_PROTOCOL_ID_MAINNET)) {
+    public static NetworkParameters fromGenesisHash(String genesisHash) {
+        if (genesisHash.equals(GENESIS_HASH_MAINNET)) {
             return MainNetParams.get();
-        } else if (pmtProtocolId.equals(PAYMENT_PROTOCOL_ID_TESTNET)) {
+        } else if (genesisHash.equals(GENESIS_HASH_TESTNET)) {
             return TestNet3Params.get();
         } else {
             return null;

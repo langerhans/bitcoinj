@@ -68,6 +68,6 @@ public class TestNet3Params extends NetworkParameters {
 
     @Override
     public String getPaymentProtocolId() {
-        return PAYMENT_PROTOCOL_ID_TESTNET;
+        return GENESIS_HASH_TESTNET;
     }
 }

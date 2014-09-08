@@ -80,6 +80,6 @@ public class MainNetParams extends NetworkParameters {
 
     @Override
     public String getPaymentProtocolId() {
-        return PAYMENT_PROTOCOL_ID_MAINNET;
+        return GENESIS_HASH_MAINNET;
     }
 }

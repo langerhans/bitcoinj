@@ -16,7 +16,11 @@
 
 package com.google.dogecoin.protocols.payments;
 
-import com.google.dogecoin.core.*;
+import com.google.dogecoin.core.Address;
+import com.google.dogecoin.core.Coin;
+import com.google.dogecoin.core.ECKey;
+import com.google.dogecoin.core.NetworkParameters;
+import com.google.dogecoin.core.Transaction;
 import com.google.dogecoin.crypto.X509Utils;
 import com.google.dogecoin.params.TestNet3Params;
 import com.google.dogecoin.params.UnitTestParams;
@@ -25,10 +29,11 @@ import com.google.dogecoin.protocols.payments.PaymentProtocol.PkiVerificationDat
 import com.google.dogecoin.protocols.payments.PaymentProtocolException.PkiVerificationException;
 import com.google.dogecoin.script.ScriptBuilder;
 import com.google.dogecoin.testing.FakeTxBuilder;
-import org.bitcoin.protocols.payments.Protos;
-import org.bitcoin.protocols.payments.Protos.Payment;
-import org.bitcoin.protocols.payments.Protos.PaymentACK;
-import org.bitcoin.protocols.payments.Protos.PaymentRequest;
+import com.dogecoin.protocols.payments.Protos;
+import com.dogecoin.protocols.payments.Protos.Payment;
+import com.dogecoin.protocols.payments.Protos.PaymentACK;
+import com.dogecoin.protocols.payments.Protos.PaymentRequest;
+
 import org.junit.Before;
 import org.junit.Test;
 

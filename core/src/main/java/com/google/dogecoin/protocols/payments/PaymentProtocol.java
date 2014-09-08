@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.bitcoin.protocols.payments.Protos;
+import com.dogecoin.protocols.payments.Protos;
 
 import javax.annotation.Nullable;
 import java.io.Serializable;
@@ -89,7 +89,7 @@ public class PaymentProtocol {
             List<Protos.Output> outputs, @Nullable String memo, @Nullable String paymentUrl,
             @Nullable byte[] merchantData) {
         final Protos.PaymentDetails.Builder paymentDetails = Protos.PaymentDetails.newBuilder();
-        paymentDetails.setNetwork(params.getPaymentProtocolId());
+        paymentDetails.setGenesis(params.getGenesisBlock().getHashAsString());
         for (Protos.Output output : outputs)
             paymentDetails.addOutputs(output);
         if (memo != null)
