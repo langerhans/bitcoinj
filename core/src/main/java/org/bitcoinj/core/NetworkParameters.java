@@ -149,7 +149,7 @@ public abstract class NetworkParameters {
     /**
      * The maximum number of coins to be generated
      */
-    public static final long MAX_COINS = 21000000;
+    public static final long MAX_COINS = 92233720368L; // 8 Billion short, but should work for a while. Also safety margin cause it gets multiplied.
 
     /**
      * The maximum money to be generated
