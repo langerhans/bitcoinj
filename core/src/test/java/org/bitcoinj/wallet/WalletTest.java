@@ -2390,6 +2390,57 @@ public class WalletTest extends TestWithWallet {
     }
 
     @Test
+    public void dogecoinFeeTest() throws Exception {
+        sendMoneyToWallet(AbstractBlockChain.NewBlockType.BEST_CHAIN, COIN.multiply(100));
+
+        // Test a standard 1 in/2 out tx. Expect 1 DOGE fee.
+        SendRequest req1 = SendRequest.to(OTHER_ADDRESS, COIN);
+        req1.feePerKb = Transaction.DEFAULT_TX_FEE;
+        req1.ensureMinRequiredFee = true;
+        assertTrue(req1.tx.unsafeBitcoinSerialize().length <= 1000);
+        wallet.completeTx(req1);
+        assertEquals(COIN, req1.tx.getFee());
+
+        // Test a tx with a size over 1000 bytes. Expect 2 DOGE fee.
+        SendRequest req2 = SendRequest.to(OTHER_ADDRESS, COIN);
+        for (int i = 0; i <= 29; i++)
+            req2.tx.addOutput(COIN, OTHER_ADDRESS);
+        req2.feePerKb = Transaction.DEFAULT_TX_FEE;
+        req2.ensureMinRequiredFee = true;
+        assertTrue(req2.tx.unsafeBitcoinSerialize().length > 1000);
+        wallet.completeTx(req2);
+        assertEquals(COIN.multiply(2), req2.tx.getFee());
+
+        // Test a tx that spends dust. Expect 1 DOGE extra fee per dust output.
+        SendRequest req3 = SendRequest.to(OTHER_ADDRESS, COIN);
+        req3.tx.addOutput(CENT, OTHER_ADDRESS);
+        req3.tx.addOutput(CENT, OTHER_ADDRESS);
+        req3.feePerKb = Transaction.DEFAULT_TX_FEE;
+        req3.ensureMinRequiredFee = true;
+        assertTrue(req3.tx.unsafeBitcoinSerialize().length <= 1000);
+        wallet.completeTx(req3);
+        assertEquals(COIN.multiply(3), req3.tx.getFee());
+
+        // Test a combination of the above. Expect 1 DOGE base, 1 DOGE extra for size and 30 DOGE dust fees.
+        SendRequest req4 = SendRequest.to(OTHER_ADDRESS, COIN);
+        for (int i = 0; i <= 29; i++)
+            req4.tx.addOutput(CENT, OTHER_ADDRESS);
+        req4.feePerKb = Transaction.DEFAULT_TX_FEE;
+        req4.ensureMinRequiredFee = true;
+        assertTrue(req4.tx.unsafeBitcoinSerialize().length > 1000);
+        wallet.completeTx(req4);
+        assertEquals(COIN.multiply(32), req4.tx.getFee());
+
+        // Make sure change that would be dust is rolled into the fee instead.
+        SendRequest req5 = SendRequest.to(OTHER_ADDRESS, COIN.multiply(98).add(CENT));
+        req5.feePerKb = Transaction.DEFAULT_TX_FEE;
+        req5.ensureMinRequiredFee = true;
+        assertTrue(req5.tx.unsafeBitcoinSerialize().length <= 1000);
+        wallet.completeTx(req5);
+        assertEquals(Coin.valueOf(199000000), req5.tx.getFee());
+    }
+
+    @Test
     public void feeSolverAndCoinSelectionTests2() throws Exception {
         Transaction tx5 = sendMoneyToWallet(AbstractBlockChain.NewBlockType.BEST_CHAIN, CENT);
         sendMoneyToWallet(AbstractBlockChain.NewBlockType.BEST_CHAIN, COIN);
