@@ -4142,8 +4142,8 @@ public class Wallet extends BaseTaggableObject
             if (req.ensureMinRequiredFee && !req.emptyWallet) { // Min fee checking is handled later for emptyWallet.
                 int opReturnCount = 0;
                 for (TransactionOutput output : req.tx.getOutputs()) {
-                    if (output.isDust())
-                        //throw new DustySendRequested();
+                    // if (output.isDust())
+                    //     throw new DustySendRequested();
                     if (ScriptPattern.isOpReturn(output.getScriptPubKey()))
                         ++opReturnCount;
                 }
